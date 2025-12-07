@@ -1,338 +1,193 @@
-# Manual Técnico Maestro: DASHBOARD CON IA
+# BIBLIA DEL SISTEMA: DASHBOARD CON IA
 
-Este documento es la referencia definitiva del sistema. Cubre desde la arquitectura de alto nivel hasta la explicación línea por línea de la infraestructura, diseñado para capacitar completamente a un nuevo desarrollador o arquitecto de software.
+Este documento tiene un único propósito: **Transferir todo el conocimiento técnico, explícito e implícito, necesario para reemplazar al arquitecto original del proyecto.** Cubre arquitectura, código, infraestructura, seguridad, costos y secretos no documentados.
 
 ---
 
-## 1. Arquitectura del Sistema
+## 1. Arquitectura Técnica Completa
 
-El sistema opera bajo una arquitectura de **Microservicios Contenerizados**. No es una aplicación monolítica; son piezas independientes que trabajan juntas.
+El sistema es una aplicación web **Isomórfica de Microservicios** que actúa como interfaz personalizada sobre una base de datos NoSQL (Notion).
 
-### Diagrama de Arquitectura Global
+### Diagrama de Componentes y Red
 
 ```mermaid
 graph TD
-    subgraph "Cliente (Navegador)"
-        Browser[Navegador del Usuario]
-        PDFLib[Librería jsPDF (Generación Local)]
+    subgraph "Capa de Presentación (Cliente)"
+        Browser[Navegador Usuario]
+        React[React SPA (Memoria)]
+        LocalStorage[Almacenamiento Local]
     end
 
-    subgraph "Servidor de Aplicaciones (Docker Host)"
-        Nginx[Nginx (Reverse Proxy & Web Server)]
-        ReactApp[React App (Archivos Estáticos)]
-        NodeServer[Node.js Backend API]
+    subgraph "Capa de Infraestructura (Docker Host)"
+        subgraph "Red Interna: app-network"
+            Nginx[Nginx:80 (Gateway)]
+            Node[Node.js:3001 (API Gateway)]
+        end
     end
 
-    subgraph "Servicios Externos (Nube)"
-        Notion[Notion API (Base de Datos)]
-        N8N[N8N (Automatización de Flujos)]
+    subgraph "Capa de Datos y Servicios (SaaS)"
+        Notion[Notion API (Persistencia)]
+        N8N[N8N Workflow (Automatización)]
     end
 
-    Browser -->|HTTP/HTTPS| Nginx
-    Nginx -->|Sirve Archivos| ReactApp
-    Nginx -->|Proxy /api| NodeServer
-    
-    NodeServer -->|Lectura/Escritura| Notion
-    NodeServer -->|Webhook POST| N8N
-    
-    Browser -.->|Genera| PDFLib
+    Browser -- HTTPS/443 --> Nginx
+    Nginx -- Proxy_Pass --> Node
+    Node -- HTTPS/JSON --> Notion
+    Node -- HTTPS/JSON --> N8N
 ```
 
-### Relación Humano ↔ Aplicación
+### Flujo de Ejecución Crítico
 
-```mermaid
-sequenceDiagram
-    participant Humano as Usuario
-    participant UI as Interfaz (React)
-    participant API as Backend (Node)
-    participant Ext as Servicios (Notion/N8N)
-
-    Humano->>UI: Ingresa a la URL
-    UI->>API: Solicita lista de Leads
-    API->>Ext: Consulta Base de Datos (Notion)
-    Ext-->>API: Retorna datos crudos
-    API-->>UI: Retorna JSON limpio
-    UI-->>Humano: Muestra Tabla de Clientes
-
-    Humano->>UI: Crea Cotización y da Clic en Enviar
-    UI->>API: Envía datos de cotización (POST)
-    API->>Ext: Dispara Webhook de Automatización (N8N)
-    Ext-->>API: Confirma recepción
-    API-->>UI: Confirma éxito
-    UI-->>Humano: Muestra alerta "Enviado Correctamente"
-```
+1.  **Inicialización**: `docker-compose` levanta la red. Nginx espera en puerto 8081. Node espera en 3001.
+2.  **Carga**: Usuario accede. Nginx sirve estáticos. React hidrata la vista.
+3.  **Datos**: React pide `/api/leads`. Nginx redirige a Node. Node firma la petición con `NOTION_API_KEY` y consulta Notion.
+4.  **Transacción**: Usuario envía cotización. Node recibe POST, valida y reenvía a N8N (Fire-and-Forget).
 
 ---
 
-## 2. Mapa de Estructura de Carpetas
+## 2. Mapa del Código y Puntos Críticos
 
-Este mapa explica qué hace cada rincón del proyecto.
+### Estructura de Archivos (El Mapa del Tesoro)
 
-```text
-/ (Raíz del Proyecto)
-├── .env                    # [SECRETO] Variables de entorno (Claves de API). NO SUBIR A GITHUB.
-├── docker-compose.yml      # Orquestador. Define cómo levantar Frontend y Backend juntos.
-├── nginx.conf              # Configuración del servidor web. Maneja el tráfico y el Proxy.
-├── package.json            # Dependencias del Frontend (React, Vite, Tailwind).
-├── index.html              # Punto de entrada de la aplicación web.
-├── vite.config.ts          # Configuración del empaquetador Vite.
-│
-├── backend/                # [MICROSERVICIO] Servidor API
-│   ├── Dockerfile          # Instrucciones para construir la imagen del servidor.
-│   ├── package.json        # Dependencias del Backend (Express, Notion Client).
-│   └── server.js           # Lógica del servidor. Rutas, validaciones y conexión a Notion.
-│
-├── src/                    # Código Fuente del Frontend
-│   ├── App.tsx             # Componente raíz. Decide qué mostrar (Ventas vs Cotizaciones).
-│   ├── main.tsx            # Punto de montaje de React en el DOM.
-│   │
-│   ├── components/         # Bloques de construcción de la UI
-│   │   ├── Header.tsx      # Barra superior.
-│   │   ├── QuotesView.tsx  # [CRÍTICO] Formulario de cotización y lógica de envío.
-│   │   ├── Chatbot.tsx     # Widget flotante de N8N.
-│   │   └── ... (Sidebars, etc.)
-│   │
-│   └── services/           # Lógica de Negocio (Sin UI)
-│       ├── notionService.ts # Funciones para hablar con nuestro Backend.
-│       ├── pdfService.ts    # Lógica matemática y visual para crear el PDF.
-│       └── geminiService.ts # (Experimental) Integración con IA.
-│
-└── public/                 # Archivos estáticos públicos (imágenes, favicons).
-```
+*   `docker-compose.yml`: **[CRÍTICO]** Define la red y las variables de entorno. Si esto falla, nada arranca.
+*   `nginx.conf`: **[CRÍTICO]** Configura el enrutamiento. Un error aquí causa "404 Not Found" en la API.
+*   `backend/server.js`: **[NÚCLEO]** Contiene la lógica de seguridad. Es el único lugar que conoce los secretos.
+    *   *Punto Caliente*: La función `getHistory` tiene lógica de "fallback" para fechas inválidas.
+*   `src/components/QuotesView.tsx`: **[COMPLEJO]** Maneja el estado del formulario gigante.
+    *   *Deuda Técnica*: El cálculo de totales se hace en el cliente. Debería validarse en el servidor.
+*   `src/services/pdfService.ts`: **[FRÁGIL]** Genera el PDF a mano (coordenada X, Y). Si cambias el texto, debes recalcular las coordenadas.
 
 ---
 
-## 3. Lógica de Negocio (Pseudocódigo)
+## 3. Reglas de Negocio (Pseudocódigo)
 
-### Proceso: Enviar Cotización (Webhook)
-
-**Regla de Negocio**: Una cotización solo se envía si hay un cliente seleccionado y productos agregados.
-
+### Regla 1: Validación de Envío
 ```pseudocode
-FUNCION EnviarCotizacion(cliente, productos):
-    SI cliente ES NULO O productos ESTA_VACIO:
-        RETORNAR Error("Faltan datos")
-
-    total = CALCULAR_TOTAL(productos)
-    
-    payload = {
-        "cliente": cliente.nombre,
-        "telefono": cliente.telefono,
-        "productos": productos,
-        "total": total,
-        "fecha": AHORA()
-    }
-
-    INTENTAR:
-        respuesta = HACER_POST("/api/webhook", payload)
-        SI respuesta.status == 200:
-            MOSTRAR_ALERTA("Éxito")
-            LIMPIAR_FORMULARIO()
-        SINO:
-            MOSTRAR_ERROR("Error en el servidor")
-    CAPTURAR Error:
-        MOSTRAR_ERROR("Fallo de red")
-FIN FUNCION
+SI (Cliente Seleccionado == NULL) O (Lista Productos == VACÍA):
+    BLOQUEAR Envío
+    MOSTRAR Alerta "Faltan datos"
+SINO:
+    PERMITIR Envío
 ```
 
-### Proceso: Generar Reporte Diario (PDF)
-
-**Regla de Negocio**: El reporte debe mostrar todas las actividades del día. Si una fecha es inválida, no debe romper el reporte, sino mostrar "--:--".
-
+### Regla 2: Sanitización de Fechas (El problema "Invalid Date")
 ```pseudocode
-FUNCION GenerarPDF(historial):
-    actividades_hoy = FILTRAR(historial, item => item.fecha == HOY)
-    
-    doc = NUEVO_PDF()
-    DIBUJAR_ENCABEZADO(doc, "Reporte Diario")
-    
-    PARA CADA item EN actividades_hoy:
-        hora = FORMATEAR_HORA(item.fecha)
-        
-        # Regla de Seguridad
-        SI hora CONTIENE "Invalid":
-            hora = "--:--"
-            
-        FILA = [hora, item.cliente, item.descripcion]
-        AGREGAR_TABLA(doc, FILA)
-        
-    GUARDAR_PDF(doc, "Reporte_Diario.pdf")
-FIN FUNCION
+ENTRADA: fecha_string (viene de Notion)
+PROCESO:
+    fecha_obj = PARSEAR(fecha_string)
+    SI fecha_obj ES INVÁLIDA:
+        RETORNAR "--:--"  // Fallback seguro
+    SINO:
+        RETORNAR FORMATO_ISO(fecha_obj)
 ```
 
----
-
-## 4. Infraestructura Línea por Línea
-
-### `backend/Dockerfile`
-Este archivo crea la "computadora virtual" donde vive el servidor.
-
-```dockerfile
-FROM node:18-alpine           # 1. Usa una versión ligera de Linux con Node.js instalado.
-WORKDIR /app                  # 2. Crea una carpeta /app dentro del contenedor.
-COPY package*.json ./         # 3. Copia los archivos de dependencias.
-RUN npm install               # 4. Instala las librerías (Express, Notion, etc.).
-COPY . .                      # 5. Copia el resto del código (server.js).
-EXPOSE 3001                   # 6. Avisa que usará el puerto 3001.
-CMD ["node", "server.js"]     # 7. Comando de inicio: arranca el servidor.
-```
-
-### `docker-compose.yml`
-El director de orquesta.
-
-```yaml
-version: '3.8'
-services:
-  erp-dashboard:              # Servicio 1: Frontend
-    build: .                  # Construye usando el Dockerfile de la raíz.
-    ports:
-      - "8081:80"             # Conecta puerto 8081 (PC) -> 80 (Nginx).
-    depends_on:
-      - backend               # Espera a que el backend arranque primero.
-
-  backend:                    # Servicio 2: API
-    build: ./backend          # Construye usando backend/Dockerfile.
-    ports:
-      - "3001:3001"           # Conecta puerto 3001 (PC) -> 3001 (Node).
-    environment:              # Inyecta las claves secretas.
-      - NOTION_API_KEY=${VITE_NOTION_API_KEY}
-```
+### Regla 3: Persistencia de Leads
+Los Leads **NO** se guardan en el servidor local. El servidor es "Stateless" (sin estado). Si reinicias Docker, no se pierden datos porque viven en Notion.
 
 ---
 
-## 5. GitHub y Control de Versiones
+## 4. Infraestructura: Docker y Redes
 
-El repositorio es el historial de vida del proyecto.
+### Volúmenes y Persistencia
+*   **Backend**: No usa volúmenes persistentes. Es efímero.
+*   **Frontend**: No usa volúmenes. Se reconstruye en cada deploy.
+*   **Base de Datos**: Externa (Notion). No gestionamos su almacenamiento.
 
-*   **Rama `main`**: Es la versión "Sagrada". El código aquí siempre debe funcionar. Es lo que está en producción.
-*   **Commits**: Cada cambio guardado.
-    *   *Ejemplo*: "fix: corregir error de fecha en PDF"
-*   **Remote (`origin`)**: La copia del código en la nube (GitHub).
-
-**Flujo de Trabajo Estándar:**
-1.  `git pull origin main`: Bajar los últimos cambios de la nube.
-2.  *Hacer cambios en el código...*
-3.  `git add .`: Preparar los cambios.
-4.  `git commit -m "Descripción"`: Guardar los cambios en local.
-5.  `git push origin main`: Subir los cambios a la nube.
+### Redes
+Docker crea una red virtual `default`.
+*   `erp-dashboard` (Frontend) ve a `backend` por su nombre de host: `http://backend:3001`.
+*   Desde fuera (tu PC), solo ves `localhost:8081`. El puerto 3001 está cerrado al exterior en producción (según `docker-compose` actual está abierto, lo cual es un riesgo menor en dev pero debe cerrarse en prod).
 
 ---
 
-## 6. Guía de Despliegue (Deployment)
+## 5. Pipeline de Despliegue y Rollback
 
-Para poner esto en internet (VPS como DigitalOcean, AWS, etc.):
-
-1.  **Alquilar Servidor**: Obtén un servidor Ubuntu.
-2.  **Instalar Docker**:
+### Despliegue (Deployment)
+1.  **Local**: `git push origin main`
+2.  **Servidor**:
     ```bash
-    sudo apt update
-    sudo apt install docker.io docker-compose
+    git pull origin main
+    docker compose down
+    docker compose up --build -d
     ```
-3.  **Clonar Repositorio**:
+
+### Rollback (Volver atrás)
+Si la nueva versión rompe todo:
+1.  **Identificar commit anterior**: `git log` (ej. `a1b2c3d`)
+2.  **Revertir código**: `git checkout a1b2c3d`
+3.  **Redesplegar**:
     ```bash
-    git clone https://github.com/TU_USUARIO/DASHBOARD.git
-    cd DASHBOARD
+    docker compose down
+    docker compose up --build -d
     ```
-4.  **Configurar Secretos**:
-    Crear el archivo `.env` en el servidor (porque git no lo sube).
-    ```bash
-    nano .env
-    # Pegar tus claves API aquí
-    ```
-5.  **Lanzar**:
-    ```bash
-    sudo docker-compose up --build -d
-    ```
-    ¡Listo! Tu app estará disponible en la IP del servidor, puerto 8081.
 
 ---
 
-## 7. Pruebas y Calidad (QA)
+## 6. Seguridad y Vectores de Ataque
 
-Actualmente el sistema no cuenta con pruebas automatizadas implementadas. Esta es la estrategia recomendada para implementarlas:
+### Modelo de Seguridad
+*   **Autenticación**: **INEXISTENTE**. El sistema confía en que está en una red privada o protegido por VPN.
+*   **Secretos**: Gestionados vía `.env`. Nunca hardcodeados.
 
-### Estrategia de Pruebas
-1.  **Unitarias (Backend)**: Usar `Jest` para probar endpoints individuales.
-    *   *Ejemplo*: Enviar un POST a `/api/webhook` con datos vacíos y verificar que retorne error 400.
-2.  **End-to-End (Frontend)**: Usar `Playwright` o `Cypress` para simular un usuario real.
-    *   *Ejemplo*: Script que abre el navegador, llena el formulario, da clic en enviar y verifica que aparezca la alerta de éxito.
-
-### Manejo de Errores y Logs
-*   **Backend**: Usa bloques `try/catch` en todas las rutas asíncronas.
-    *   *Log*: `console.error("Error crítico:", error)` se imprime en la terminal de Docker (`docker compose logs backend`).
-*   **Frontend**: Captura errores de red en `fetch` y muestra alertas al usuario.
-    *   *Mejora Futura*: Implementar Sentry para monitoreo de errores en tiempo real.
+### Vectores de Ataque
+1.  **Acceso Público**: Si despliegas esto en una IP pública sin firewall, CUALQUIERA puede ver tus clientes.
+    *   *Mitigación*: Usar VPN o Basic Auth en Nginx.
+2.  **DoS (Denegación de Servicio)**: Un script puede llamar `/api/leads` 1000 veces/segundo y bloquear tu cuenta de Notion.
+    *   *Mitigación*: Implementar `express-rate-limit` en `server.js`.
+3.  **Inyección de Datos**: Notion sanitiza inputs, pero N8N podría ser vulnerable si no valida los datos del webhook.
 
 ---
 
-## 8. Seguridad y Base de Datos
+## 7. Base de Datos (Esquema Notion)
 
-### Arquitectura de Seguridad
-*   **Proxy Inverso**: El Frontend nunca conoce las claves de API. Solo el Backend (servidor seguro) tiene acceso a ellas.
-*   **Variables de Entorno**: Las claves viven en memoria del servidor, nunca en el código fuente.
-*   **CORS**: Configurado para aceptar peticiones solo desde el dominio de origen (aunque en desarrollo es permisivo).
+Aunque flexible, el código espera esta estructura rígida:
 
-### Diagrama de Base de Datos (Notion)
-Aunque Notion es NoSQL, conceptualmente tenemos estas relaciones:
+| Tabla | Columna (Notion) | Tipo | Uso en Código |
+| :--- | :--- | :--- | :--- |
+| **Leads** | `Name` | Title | Nombre del Cliente |
+| | `Phone` | Phone | Teléfono para WhatsApp |
+| | `Status` | Select | Estado del Lead |
+| **History** | `Description` | RichText | Detalle de la acción |
+| | `Date` | Date | Timestamp del evento |
 
-```mermaid
-erDiagram
-    LEADS ||--o{ HISTORY : tiene
-    LEADS {
-        string ID
-        string Name
-        string Phone
-        string Status
-        string Agent
-    }
-    HISTORY {
-        string ID
-        string Description
-        date Timestamp
-        string Type
-    }
-```
+**Riesgo**: Si cambias el nombre de la columna "Name" a "Nombre" en Notion, **el sistema colapsa**.
 
 ---
 
-## 9. Performance y Escalabilidad
+## 8. Costos de Infraestructura
 
-### Cuellos de Botella Actuales
-1.  **Notion API**: Es lenta (latencia de ~500ms a 1s) y tiene límites de velocidad (Rate Limits). Si 100 usuarios consultan a la vez, Notion bloqueará las peticiones.
-2.  **Renderizado Cliente**: Si la lista de Leads crece a miles, el navegador se pondrá lento porque React renderiza todo de golpe.
-
-### Estrategia de Escalado
-1.  **Caché (Redis)**: Implementar Redis en el Backend para guardar la lista de Leads por 5 minutos. Esto reduce las llamadas a Notion en un 90%.
-2.  **Paginación**: No cargar todos los Leads. Cargar de 50 en 50 (Lazy Loading).
-3.  **Migración de DB**: Si el negocio crece, migrar de Notion a PostgreSQL para consultas instantáneas y sin límites de API.
-
----
-
-## 10. Decisiones Técnicas y Riesgos
-
-### ¿Por qué estas tecnologías?
-*   **React + Vite**: Estándar de la industria, rápido desarrollo y ecosistema gigante.
-*   **Notion como DB**: Permite al cliente gestionar sus datos en una interfaz amigable sin construir un panel de administración complejo desde cero.
-*   **Docker**: Garantiza que "si funciona en mi máquina, funciona en el servidor".
-
-### Riesgos Futuros
-*   **Dependencia de Notion**: Si Notion cambia su API o cae, el sistema se detiene.
-*   **Seguridad**: Al no haber login, cualquiera con acceso a la URL interna puede ver los datos (actualmente protegido por red local o VPN, pero requiere autenticación real para salir a internet público).
+| Concepto | Costo Estimado | Notas |
+| :--- | :--- | :--- |
+| **VPS (Servidor)** | $5 - $10 USD/mes | DigitalOcean Droplet o AWS EC2 t3.micro |
+| **Dominio** | $10 USD/año | Opcional (si usas IP directa es gratis) |
+| **Notion** | Gratis / $10 USD | Gratis hasta cierto límite de bloques/API |
+| **N8N** | Gratis (Self-hosted) | Si lo alojas en el mismo VPS |
+| **Total** | **~$5 - $20 USD/mes** | Muy económico |
 
 ---
 
-## 11. Roadmap del Desarrollador
+## 9. Deuda Técnica y Conocimiento No Documentado
 
-Para dominar este proyecto, necesitas aprender estas tecnologías en este orden:
-
-1.  **HTML/CSS/JavaScript Moderno (ES6+)**: La base de todo. Entender `async/await`, desestructuración y módulos.
-2.  **React**: Entender Componentes, Props, State (`useState`) y Efectos (`useEffect`).
-3.  **Tailwind CSS**: Aprender las clases de utilidad para maquetar rápido sin escribir CSS tradicional.
-4.  **Node.js & Express**: Cómo crear una API simple, recibir JSON y responder.
-5.  **Docker**: Conceptos básicos de Contenedores, Imágenes y Volúmenes.
-6.  **Git**: Comandos básicos (`add`, `commit`, `push`, `pull`, `merge`).
-7.  **Nginx**: (Avanzado) Cómo configurar un servidor web y proxy reverso.
+### Lo que nadie te dice (hasta ahora):
+1.  **Dependencia de N8N**: El chat y el envío de correos dependen 100% de que tu servidor de N8N esté vivo. Si N8N cae, el botón de "Enviar" parecerá funcionar pero no llegará nada.
+2.  **PDF Frágil**: La generación de PDF usa coordenadas absolutas. Si el nombre del cliente es muy largo (más de 50 caracteres), se sobrepondrá al precio. No hay ajuste de texto automático.
+3.  **Timezones**: Las fechas se guardan en UTC pero se muestran en local. Ojo con los reportes generados a medianoche; pueden salir con la fecha del día anterior.
+4.  **Límite de Notion**: La API de Notion retorna máximo 100 items por página. El código actual maneja paginación (`hasMore`), pero si tienes 10,000 leads, la carga inicial tardará más de 10 segundos.
 
 ---
 
-**Fin del Manual Técnico Maestro.**
+## 10. Monitoreo y Respuesta a Fallos
+
+### Cómo saber si está vivo
+*   **Comando**: `docker compose ps` (Debe decir "Up").
+*   **Logs Backend**: `docker compose logs -f backend` (Busca errores rojos).
+*   **Logs Nginx**: `docker compose logs -f erp-dashboard`.
+
+### Protocolo de Emergencia
+1.  **El sistema no carga**: Reinicia Docker (`docker compose restart`).
+2.  **Error de API**: Verifica que la `NOTION_API_KEY` no haya expirado o sido revocada en Notion.
+3.  **Botón no funciona**: Revisa la consola del navegador (F12) y verifica si hay errores de red (CORS o 500).
+
+---
+
+**Esta es la totalidad del conocimiento técnico del proyecto.** Con este documento, tienes el control absoluto.
