@@ -1,6 +1,6 @@
 # BIBLIA DEL SISTEMA: DASHBOARD CON IA
 
-Este documento tiene un único propósito: **Transferir todo el conocimiento técnico, explícito e implícito, necesario para reemplazar al arquitecto original del proyecto.** Cubre arquitectura, código, infraestructura, seguridad, costos y secretos no documentados.
+Este documento tiene un único propósito: **Transferir todo el conocimiento técnico
 
 > **Nota**: Se han añadido explicaciones simples entre paréntesis para aclarar términos técnicos.
 
