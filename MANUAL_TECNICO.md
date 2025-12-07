@@ -247,7 +247,81 @@ Para poner esto en internet (VPS como DigitalOcean, AWS, etc.):
 
 ---
 
-## 7. Roadmap del Desarrollador
+## 7. Pruebas y Calidad (QA)
+
+Actualmente el sistema no cuenta con pruebas automatizadas implementadas. Esta es la estrategia recomendada para implementarlas:
+
+### Estrategia de Pruebas
+1.  **Unitarias (Backend)**: Usar `Jest` para probar endpoints individuales.
+    *   *Ejemplo*: Enviar un POST a `/api/webhook` con datos vacíos y verificar que retorne error 400.
+2.  **End-to-End (Frontend)**: Usar `Playwright` o `Cypress` para simular un usuario real.
+    *   *Ejemplo*: Script que abre el navegador, llena el formulario, da clic en enviar y verifica que aparezca la alerta de éxito.
+
+### Manejo de Errores y Logs
+*   **Backend**: Usa bloques `try/catch` en todas las rutas asíncronas.
+    *   *Log*: `console.error("Error crítico:", error)` se imprime en la terminal de Docker (`docker compose logs backend`).
+*   **Frontend**: Captura errores de red en `fetch` y muestra alertas al usuario.
+    *   *Mejora Futura*: Implementar Sentry para monitoreo de errores en tiempo real.
+
+---
+
+## 8. Seguridad y Base de Datos
+
+### Arquitectura de Seguridad
+*   **Proxy Inverso**: El Frontend nunca conoce las claves de API. Solo el Backend (servidor seguro) tiene acceso a ellas.
+*   **Variables de Entorno**: Las claves viven en memoria del servidor, nunca en el código fuente.
+*   **CORS**: Configurado para aceptar peticiones solo desde el dominio de origen (aunque en desarrollo es permisivo).
+
+### Diagrama de Base de Datos (Notion)
+Aunque Notion es NoSQL, conceptualmente tenemos estas relaciones:
+
+```mermaid
+erDiagram
+    LEADS ||--o{ HISTORY : tiene
+    LEADS {
+        string ID
+        string Name
+        string Phone
+        string Status
+        string Agent
+    }
+    HISTORY {
+        string ID
+        string Description
+        date Timestamp
+        string Type
+    }
+```
+
+---
+
+## 9. Performance y Escalabilidad
+
+### Cuellos de Botella Actuales
+1.  **Notion API**: Es lenta (latencia de ~500ms a 1s) y tiene límites de velocidad (Rate Limits). Si 100 usuarios consultan a la vez, Notion bloqueará las peticiones.
+2.  **Renderizado Cliente**: Si la lista de Leads crece a miles, el navegador se pondrá lento porque React renderiza todo de golpe.
+
+### Estrategia de Escalado
+1.  **Caché (Redis)**: Implementar Redis en el Backend para guardar la lista de Leads por 5 minutos. Esto reduce las llamadas a Notion en un 90%.
+2.  **Paginación**: No cargar todos los Leads. Cargar de 50 en 50 (Lazy Loading).
+3.  **Migración de DB**: Si el negocio crece, migrar de Notion a PostgreSQL para consultas instantáneas y sin límites de API.
+
+---
+
+## 10. Decisiones Técnicas y Riesgos
+
+### ¿Por qué estas tecnologías?
+*   **React + Vite**: Estándar de la industria, rápido desarrollo y ecosistema gigante.
+*   **Notion como DB**: Permite al cliente gestionar sus datos en una interfaz amigable sin construir un panel de administración complejo desde cero.
+*   **Docker**: Garantiza que "si funciona en mi máquina, funciona en el servidor".
+
+### Riesgos Futuros
+*   **Dependencia de Notion**: Si Notion cambia su API o cae, el sistema se detiene.
+*   **Seguridad**: Al no haber login, cualquiera con acceso a la URL interna puede ver los datos (actualmente protegido por red local o VPN, pero requiere autenticación real para salir a internet público).
+
+---
+
+## 11. Roadmap del Desarrollador
 
 Para dominar este proyecto, necesitas aprender estas tecnologías en este orden:
 
