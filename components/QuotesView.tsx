@@ -116,7 +116,7 @@ const QuotesView: React.FC<QuotesViewProps> = ({ leads }) => {
         setItems([{ id: Date.now().toString(), quantity: 1, description: '', unitPrice: 0, amount: 0 }]);
     };
 
-    const [isWhatsappLoading, setIsWhatsappLoading] = useState(false);
+    const [isSending, setIsSending] = useState(false);
 
     const handleGeneratePDF = async () => {
         if (!company) return alert("Ingrese el nombre de la empresa");
@@ -153,39 +153,58 @@ const QuotesView: React.FC<QuotesViewProps> = ({ leads }) => {
         }
     };
 
-    const handleSendWhatsApp = async () => {
-        console.log("Botón Webhook presionado");
-        if (!phone) return alert("Ingrese un número de teléfono");
+    const handleSendQuote = async () => {
+        // DEBUG: Verificar si el click llega
+        alert("DEBUG: Click recibido. Iniciando proceso...");
 
-        setIsWhatsappLoading(true);
+        if (!phone) {
+            alert("⚠️ Por favor, ingrese un número de teléfono para enviar la cotización.");
+            return;
+        }
+
+        // Confirmation Dialog
+        const isConfirmed = window.confirm("¿Estás seguro de que deseas enviar esta cotización?");
+        if (!isConfirmed) return;
+
+        setIsSending(true);
         try {
             const newQuote = createQuoteObject();
-            console.log("Objeto cotización creado:", newQuote);
 
-            // Enviar al Proxy del Backend (evita CORS)
+            // Enviar al Webhook de n8n (vía Proxy)
             const webhookUrl = '/api/webhook';
 
-            console.log("Enviando fetch a:", webhookUrl);
+            // Timeout para evitar que se quede colgado indefinidamente
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 segundos timeout
+
             const res = await fetch(webhookUrl, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newQuote)
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(newQuote),
+                signal: controller.signal
             });
 
-            console.log("Respuesta fetch:", res.status, res.statusText);
+            clearTimeout(timeoutId);
 
             if (res.ok) {
-                console.log("Webhook enviado correctamente");
                 alert("✅ Datos enviados correctamente al sistema.");
             } else {
-                console.error("Error en webhook", res.statusText);
-                alert("❌ Error al enviar los datos.");
+                const errorText = await res.text();
+                console.error("Error del servidor:", errorText);
+                alert(`❌ Error al enviar los datos. El servidor respondió: ${res.status} ${res.statusText}`);
             }
         } catch (error: any) {
-            console.error("Error de red webhook", error);
-            alert(`❌ Error de conexión al enviar datos: ${error.message || error}`);
+            console.error("Error de conexión:", error);
+            if (error.name === 'AbortError') {
+                alert("❌ El envío tardó demasiado. Verifique su conexión.");
+            } else {
+                alert(`❌ Error de conexión: ${error.message}. Verifique que el servidor acepte solicitudes (CORS).`);
+            }
         } finally {
-            setIsWhatsappLoading(false);
+            setIsSending(false);
         }
     };
 
@@ -194,7 +213,7 @@ const QuotesView: React.FC<QuotesViewProps> = ({ leads }) => {
     const labelClass = "text-xs font-bold text-gray-300 uppercase tracking-wide mb-1 block";
 
     return (
-        <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-8 animate-in fade-in duration-500 scroll-smooth pb-20">
+        <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-8 animate-in fade-in duration-500 scroll-smooth pb-40">
 
             {/* SECTION: NEW QUOTE FORM */}
             <section className="fade-in-up" style={{ animationDelay: '0.1s' }}>
@@ -376,43 +395,24 @@ const QuotesView: React.FC<QuotesViewProps> = ({ leads }) => {
                     </div>
 
                     {/* Actions */}
-                    <div className="flex justify-end gap-4 border-t border-white/10 pt-6 relative z-50">
+                    <div className="flex justify-end gap-4 border-t border-white/10 pt-6 relative z-[100]">
                         <button
                             type="button"
-                            onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                alert("DEBUG: Click detectado. Iniciando envío...");
-                                handleSendWhatsApp();
-                            }}
-                            className="bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold py-4 px-8 rounded-lg flex items-center gap-2 transition-all shadow-lg active:scale-95 hover:scale-105 cursor-pointer relative z-50"
+                            onClick={handleSendQuote}
+                            className="bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold py-4 px-8 rounded-lg flex items-center gap-2 transition-all shadow-lg active:scale-95 hover:scale-105 cursor-pointer relative z-[100]"
                         >
-                            {isWhatsappLoading ? (
+                            {isSending ? (
                                 <span className="material-symbols-outlined text-[20px] animate-spin">progress_activity</span>
                             ) : (
                                 <span className="material-symbols-outlined text-[24px]">send</span>
                             )}
-                            <span className="text-lg">{isWhatsappLoading ? "Enviando..." : "Envio de Cotizacion"}</span>
+                            <span className="text-lg">{isSending ? "Enviando..." : "Envio de Cotizacion"}</span>
                         </button>
                     </div>
                 </div>
             </section>
 
-            {/* FLOATING ACTION BUTTON (BACKUP) */}
-            <div className="fixed bottom-24 right-6 z-40 md:hidden">
-                <button
-                    type="button"
-                    onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        alert("DEBUG: Click en botón flotante");
-                        handleSendWhatsApp();
-                    }}
-                    className="bg-[#25D366] text-white p-4 rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-transform border-2 border-white/20"
-                >
-                    <span className="material-symbols-outlined text-[28px]">send</span>
-                </button>
-            </div>
+            {/* FLOATING ACTION BUTTON REMOVED TO CLEAR RIGHT SIDE */}
         </div>
     );
 };

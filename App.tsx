@@ -280,8 +280,8 @@ const App: React.FC = () => {
                 onTabChange={setActiveTab}
             />
 
-            <div className="flex flex-col flex-1 overflow-auto relative">
-                <div className="flex flex-1 overflow-auto relative">
+            <div className="flex flex-col flex-1 overflow-hidden relative">
+                <div className="flex flex-1 overflow-hidden relative">
                     {activeTab === 'ventas' ? (
                         <>
                             <LeftSidebar
@@ -294,6 +294,13 @@ const App: React.FC = () => {
                                 onSaveNote={handleSaveNote}
                             />
 
+                            <RightSidebar
+                                history={history}
+                                isOpen={isRightSidebarOpen}
+                                onClose={() => setIsRightSidebarOpen(false)}
+                                leadName={leads.find(l => l.isSelected)?.name}
+                            />
+
                             <MainContent
                                 leads={leads}
                                 history={history}
@@ -302,13 +309,6 @@ const App: React.FC = () => {
                                 isSyncing={isSyncing}
                                 onClassChange={handleClassChange}
                                 onGenerateDailyReport={() => generateDailyReportPDF(history)}
-                            />
-
-                            <RightSidebar
-                                history={history}
-                                isOpen={isRightSidebarOpen}
-                                onClose={() => setIsRightSidebarOpen(false)}
-                                leadName={leads.find(l => l.isSelected)?.name}
                             />
                         </>
                     ) : (

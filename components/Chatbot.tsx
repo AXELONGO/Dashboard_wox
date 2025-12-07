@@ -5,11 +5,12 @@ const Chatbot: React.FC = () => {
     const [isOpen, setIsOpen] = useState(false);
 
     return (
-        <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-4">
+        <div className="fixed bottom-6 left-6 z-50 flex flex-col items-start gap-4 pointer-events-none">
             {/* Chat Window */}
             <div className={`
-                transition-all duration-300 origin-bottom-right
-                ${isOpen ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-10 pointer-events-none'}
+                absolute bottom-20 left-0
+                transition-all duration-300 origin-bottom-left
+                ${isOpen ? 'scale-100 opacity-100 translate-y-0 pointer-events-auto' : 'scale-95 opacity-0 translate-y-10 pointer-events-none'}
             `}>
                 <div className="w-[350px] h-[500px] glass-panel rounded-2xl overflow-hidden shadow-2xl flex flex-col border border-white/10 bg-[#0f172a]/90 backdrop-blur-xl">
 
@@ -25,7 +26,7 @@ const Chatbot: React.FC = () => {
             <button
                 onClick={() => setIsOpen(!isOpen)}
                 className={`
-                    size-14 rounded-full shadow-glow flex items-center justify-center transition-all duration-300
+                    size-14 rounded-full shadow-glow flex items-center justify-center transition-all duration-300 pointer-events-auto
                     ${isOpen ? 'bg-red-500/80 hover:bg-red-600' : 'bg-blue-600 hover:bg-blue-500 hover:scale-110'}
                     text-white border border-white/20
                 `}
