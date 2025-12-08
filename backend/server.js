@@ -13,7 +13,34 @@ app.use(express.json());
 // Notion Client
 const notion = new Client({ auth: process.env.NOTION_API_KEY });
 
+// Google Auth
+const { OAuth2Client } = require('google-auth-library');
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const allowedUsers = require('./allowed_users.json');
+
 // Routes
+
+// POST /api/auth/google
+app.post('/api/auth/google', async (req, res) => {
+    const { token } = req.body;
+    try {
+        const ticket = await client.verifyIdToken({
+            idToken: token,
+            audience: process.env.GOOGLE_CLIENT_ID,
+        });
+        const payload = ticket.getPayload();
+        const email = payload.email;
+
+        if (allowedUsers.includes(email)) {
+            res.json({ success: true, user: { email, name: payload.name, picture: payload.picture } });
+        } else {
+            res.status(403).json({ error: 'Access Denied', message: 'Email not in allowed list.' });
+        }
+    } catch (error) {
+        console.error("Auth Error:", error);
+        res.status(401).json({ error: 'Invalid Token' });
+    }
+});
 
 // GET /api/leads
 app.get('/api/leads', async (req, res) => {
@@ -104,11 +131,44 @@ app.get('/api/history', async (req, res) => {
     }
 
     try {
-        const response = await notion.databases.query({
+        const { startDate, endDate } = req.query;
+        const filters = [];
+
+        if (startDate) {
+            filters.push({
+                timestamp: 'created_time',
+                created_time: {
+                    on_or_after: startDate
+                }
+            });
+        }
+
+        if (endDate) {
+            filters.push({
+                timestamp: 'created_time',
+                created_time: {
+                    on_or_before: endDate
+                }
+            });
+        }
+
+        const query = {
             database_id: databaseId,
             sorts: [{ timestamp: 'created_time', direction: 'descending' }],
             page_size: 100
-        });
+        };
+
+        if (filters.length > 0) {
+            if (filters.length === 1) {
+                query.filter = filters[0];
+            } else {
+                query.filter = {
+                    and: filters
+                };
+            }
+        }
+
+        const response = await notion.databases.query(query);
 
         const cleanHistory = response.results.map(page => {
             const props = page.properties;

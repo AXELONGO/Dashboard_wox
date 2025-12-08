@@ -41,6 +41,7 @@ const QuotesView: React.FC<QuotesViewProps> = ({ leads }) => {
     // Totals State
     const [subtotal, setSubtotal] = useState(0);
     const [iva, setIva] = useState(0);
+    const [retIsr, setRetIsr] = useState(0);
     const [total, setTotal] = useState(0);
 
     // History State
@@ -50,10 +51,12 @@ const QuotesView: React.FC<QuotesViewProps> = ({ leads }) => {
     // Calculate totals whenever items change
     useEffect(() => {
         const sub = items.reduce((sum, item) => sum + item.amount, 0);
-        const tax = sub * 0.16;
+        const tax = sub * 0.08; // IVA 8%
+        const retention = sub * 0.0125; // Ret ISR 1.25%
         setSubtotal(sub);
         setIva(tax);
-        setTotal(sub + tax);
+        setRetIsr(retention);
+        setTotal(sub + tax - retention);
     }, [items]);
 
     const handleItemChange = (id: string, field: keyof QuoteItem, value: any) => {
@@ -101,6 +104,7 @@ const QuotesView: React.FC<QuotesViewProps> = ({ leads }) => {
             items,
             subtotal,
             iva,
+            retIsr,
             total,
             notes,
             agent
@@ -384,8 +388,16 @@ const QuotesView: React.FC<QuotesViewProps> = ({ leads }) => {
                                 <span className="font-mono text-white">${subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
                             <div className="flex justify-between text-gray-300 text-sm">
-                                <span>IVA (16%)</span>
+                                <span>Subtotal</span>
+                                <span className="font-mono text-white">${subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                            <div className="flex justify-between text-gray-300 text-sm">
+                                <span>IVA (8%)</span>
                                 <span className="font-mono text-white">${iva.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                            <div className="flex justify-between text-gray-300 text-sm">
+                                <span>Ret. ISR (1.25%)</span>
+                                <span className="font-mono text-red-400">-${retIsr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
                             <div className="flex justify-between text-white text-xl font-bold border-t border-white/10 pt-4 mt-2">
                                 <span>Total</span>

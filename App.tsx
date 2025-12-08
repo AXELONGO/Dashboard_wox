@@ -17,12 +17,39 @@ import {
     updateLeadClass
 } from './services/notionService';
 
+import { GoogleOAuthProvider } from '@react-oauth/google';
+import Login from './components/Login';
+
 // Initial Mock Data (Fallback)
 const FALLBACK_LEADS: Lead[] = [];
 const INITIAL_HISTORY: HistoryItem[] = [];
 
 
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
+    const [user, setUser] = useState<any>(null);
+
+    // Check for existing session (optional, for persistence)
+    useEffect(() => {
+        const storedUser = localStorage.getItem('user_session');
+        if (storedUser) {
+            setUser(JSON.parse(storedUser));
+        }
+    }, []);
+
+    const handleLogin = (userData: any) => {
+        setUser(userData);
+        localStorage.setItem('user_session', JSON.stringify(userData));
+    };
+
+    const handleLogout = () => {
+        setUser(null);
+        localStorage.removeItem('user_session');
+    };
+
+    if (!user) {
+        return <Login onLoginSuccess={handleLogin} />;
+    }
+
     // --- STATE: Data ---
     // These states are no longer directly used by App.tsx's rendering logic
     // as NotionDataViewer handles its own data.
@@ -278,6 +305,8 @@ const App: React.FC = () => {
                 onToggleRightSidebar={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
                 activeTab={activeTab}
                 onTabChange={setActiveTab}
+                user={user} // Pass user to Header if needed
+                onLogout={handleLogout} // Pass logout handler
             />
 
             <div className="flex flex-col flex-1 overflow-hidden relative">
@@ -319,6 +348,18 @@ const App: React.FC = () => {
 
             <Chatbot />
         </div>
+    );
+};
+
+const App: React.FC = () => {
+    // IMPORTANTE: Reemplazar con tu Client ID real de Google Cloud Console
+    // El usuario debe poner esto en su .env como VITE_GOOGLE_CLIENT_ID
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "TU_CLIENT_ID_AQUI";
+
+    return (
+        <GoogleOAuthProvider clientId={clientId}>
+            <AppContent />
+        </GoogleOAuthProvider>
     );
 };
 

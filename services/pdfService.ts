@@ -125,69 +125,113 @@ export const generateQuotePDF = (quote: Quote) => {
         const doc = new jsPDF();
         console.log("Documento jsPDF creado");
 
+        // --- COLORES ---
+        const black = [0, 0, 0];
+        const white = [255, 255, 255];
+        const grayBg = [240, 240, 240];
+        const headerBg = [0, 0, 0]; // Black header
 
-        // Colores corporativos
-        const headerBg = [15, 23, 42]; // Slate 900
-        // const accentColor = [59, 130, 246]; // Blue 500
-
-        // --- ENCABEZADO ---
-        // Fondo oscuro superior
+        // --- ENCABEZADO SUPERIOR (NEGRO) ---
         // @ts-ignore
         doc.setFillColor(...headerBg);
-        doc.rect(0, 0, 210, 45, 'F');
+        doc.rect(0, 0, 210, 35, 'F');
 
-        // Título / Logo
+        // Logo Text (PROSESU)
         doc.setTextColor(255, 255, 255);
-        doc.setFontSize(24);
+        doc.setFontSize(28);
         doc.setFont("helvetica", "bold");
-        doc.text("ERP Vision", 14, 20);
+        doc.text("PROSESU", 14, 18);
 
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
-        doc.text("Soluciones Tecnológicas Integrales", 14, 26);
-        doc.text("www.erpvision.com", 14, 31);
+        doc.text("SMART LOGISTICS", 14, 24);
 
-        // Datos de Cotización (Derecha)
+        // Slogan (Derecha)
         doc.setFontSize(16);
         doc.setFont("helvetica", "bold");
-        doc.text("COTIZACIÓN", 195, 20, { align: 'right' });
+        doc.text("Toma decisiones de valor", 195, 14, { align: 'right' });
 
-        doc.setFontSize(10);
+        doc.setFontSize(9);
         doc.setFont("helvetica", "normal");
-        doc.text(`Folio: ${quote.folio}`, 195, 28, { align: 'right' });
-        doc.text(`Fecha: ${quote.date}`, 195, 34, { align: 'right' });
+        doc.text("Lleva tu logística con eficiencia y eficacia", 195, 20, { align: 'right' });
 
-        // --- INFORMACIÓN DEL CLIENTE ---
-        let yPos = 60;
+        // Iconos simulados (Rectángulos con texto)
+        // @ts-ignore
+        doc.setFillColor(255, 255, 255);
+        doc.roundedRect(120, 26, 20, 6, 1, 1, 'F');
+        doc.roundedRect(142, 26, 20, 6, 1, 1, 'F');
+        doc.roundedRect(164, 26, 20, 6, 1, 1, 'F');
+        doc.roundedRect(186, 26, 20, 6, 1, 1, 'F');
 
         doc.setTextColor(0, 0, 0);
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "bold");
-        doc.text("Datos del Cliente:", 14, yPos);
+        doc.setFontSize(5);
+        doc.text("30% Ahorro", 130, 30, { align: 'center' });
+        doc.text("250 hrs", 152, 30, { align: 'center' });
+        doc.text("30% Capacidad", 174, 30, { align: 'center' });
+        doc.text("26° Temp", 196, 30, { align: 'center' });
 
-        yPos += 8;
-        doc.setFont("helvetica", "normal");
+
+        // --- BARRA DE INFO (GRIS) ---
+        let yPos = 42;
+        // @ts-ignore
+        doc.setFillColor(...grayBg);
+        doc.rect(14, yPos, 182, 8, 'F');
+
+        doc.setTextColor(0, 0, 0);
         doc.setFontSize(10);
-        doc.text(`Empresa: ${quote.company}`, 14, yPos);
-        doc.text(`Contacto: ${quote.contact}`, 110, yPos);
+        doc.setFont("helvetica", "bold");
+        doc.text("Nº de Pro-forma", 60, yPos + 5.5, { align: 'center' });
+        doc.text("Fecha:", 140, yPos + 5.5);
+        doc.setFont("helvetica", "normal");
+        doc.text(quote.date, 160, yPos + 5.5);
 
-        yPos += 6;
-        doc.text(`Teléfono: ${quote.phone}`, 14, yPos);
-        doc.text(`Correo: ${quote.email}`, 110, yPos);
+        // --- DATOS DEL CLIENTE ---
+        yPos += 14;
+        doc.setFontSize(9);
+
+        // Columna Izquierda
+        doc.setFont("helvetica", "bold");
+        doc.text("Contacto:", 14, yPos);
+        doc.setFont("helvetica", "normal");
+        doc.text(quote.contact, 40, yPos);
+
+        yPos += 5;
+        doc.setFont("helvetica", "bold");
+        doc.text("Empresa:", 14, yPos);
+        doc.setFont("helvetica", "normal");
+        doc.text(quote.company, 40, yPos);
+
+        yPos += 5;
+        doc.setFont("helvetica", "bold");
+        doc.text("Telefono:", 14, yPos);
+        doc.setFont("helvetica", "normal");
+        doc.text(quote.phone, 40, yPos);
+
+        // Columna Derecha (alineada con la izquierda en Y)
+        yPos -= 10;
+        doc.setFont("helvetica", "bold");
+        doc.text("RFC:", 110, yPos);
+        // doc.text(quote.rfc || "", 130, yPos); // RFC no está en el objeto quote aún
+
+        yPos += 5;
+        doc.text("Correo:", 110, yPos);
+        doc.setFont("helvetica", "normal");
+        doc.text(quote.email, 130, yPos);
+
 
         // --- TABLA DE PRODUCTOS ---
         yPos += 15;
 
-        const tableColumn = ["Cant", "Descripción", "P. Unitario", "Importe"];
+        const tableColumn = ["Concepto", "Cant.", "Precio Unitario", "Precio total"];
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const tableRows: any[] = [];
 
         quote.items.forEach(item => {
             const rowData = [
-                item.quantity.toString(),
-                item.description,
-                `$${item.unitPrice.toFixed(2)}`,
-                `$${item.amount.toFixed(2)}`
+                item.description, // Concepto
+                item.quantity.toString(), // Cant.
+                `$${item.unitPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                `$${item.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
             ];
             tableRows.push(rowData);
         });
@@ -196,55 +240,123 @@ export const generateQuotePDF = (quote: Quote) => {
             head: [tableColumn],
             body: tableRows,
             startY: yPos,
-            theme: 'striped',
-            headStyles: { fillColor: headerBg as [number, number, number], textColor: 255, fontStyle: 'bold' },
-            bodyStyles: { textColor: [0, 0, 0] }, // Texto negro explícito en filas
-            styles: { fontSize: 9, cellPadding: 3 },
-            columnStyles: {
-                0: { cellWidth: 20, halign: 'center' },
-                1: { cellWidth: 'auto' },
-                2: { cellWidth: 30, halign: 'right' },
-                3: { cellWidth: 30, halign: 'right' }
+            theme: 'plain', // Custom theme logic mostly
+            headStyles: {
+                fillColor: [0, 0, 0],
+                textColor: 255,
+                fontStyle: 'bold',
+                halign: 'center'
             },
-            foot: [
-                ['', '', 'Subtotal:', `$${quote.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
-                ['', '', 'IVA (16%):', `$${quote.iva.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
-                ['', '', 'TOTAL:', `$${quote.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`]
-            ],
-            footStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'right' }
+            bodyStyles: {
+                textColor: [0, 0, 0],
+                fontSize: 9
+            },
+            columnStyles: {
+                0: { cellWidth: 80 }, // Concepto
+                1: { cellWidth: 20, halign: 'center', fillColor: [240, 240, 240] }, // Cant (Gris)
+                2: { cellWidth: 40, halign: 'center' }, // Precio U
+                3: { cellWidth: 40, halign: 'center' }  // Precio Total
+            },
+            styles: {
+                cellPadding: 3,
+                lineColor: [200, 200, 200],
+                lineWidth: 0.1
+            },
+            // Draw vertical lines manually if needed or rely on grid theme, but 'plain' with borders is better for custom look
+            // Let's use 'grid' but override styles
+            // theme: 'grid' might be better to get borders
         });
 
-        // Obtener posición final de la tabla
         // @ts-ignore
         const finalY = doc.lastAutoTable.finalY || yPos + 40;
 
-        // --- NOTAS ---
-        if (quote.notes) {
-            let noteY = finalY + 10;
-            doc.setFontSize(10);
-            doc.setFont("helvetica", "bold");
-            doc.setTextColor(0, 0, 0); // Texto negro para título notas
-            doc.text("Notas:", 14, noteY);
+        // --- FOOTER TOTALES ---
+        let footerY = finalY + 5;
 
-            doc.setFont("helvetica", "normal");
-            doc.setTextColor(0, 0, 0); // Texto negro para contenido notas
-            const splitNotes = doc.splitTextToSize(quote.notes, 180);
-            doc.text(splitNotes, 14, noteY + 6);
+        // Nota a la izquierda
+        doc.setFontSize(8);
+        doc.setTextColor(80, 80, 80);
+        doc.text("Nota: La renta mensual por unidad tiene un costo de $650 + IVA", 14, footerY + 5);
+        if (quote.notes) {
+            doc.text(`Notas adicionales: ${quote.notes}`, 14, footerY + 10);
         }
 
-        // --- PIE DE PÁGINA ---
-        const pageHeight = doc.internal.pageSize.height;
+        // Totales a la derecha
+        const rightColX = 130;
+        const valColX = 170;
 
+        doc.setFontSize(10);
+        doc.setTextColor(0, 0, 0);
+
+        // Total Parcial
+        doc.setFont("helvetica", "bold");
+        doc.text("Total parcial", rightColX, footerY + 5);
+        doc.text(`${quote.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, valColX, footerY + 5, { align: 'right' });
+
+        // Descuento (Fondo gris)
+        footerY += 8;
         // @ts-ignore
-        doc.setFillColor(...headerBg);
-        doc.rect(0, pageHeight - 20, 210, 20, 'F');
+        doc.setFillColor(...grayBg);
+        doc.rect(rightColX, footerY - 4, 60, 6, 'F');
+        doc.text("Descuento (%)", rightColX + 2, footerY);
 
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(8);
-        doc.text("ERP Vision - Software de Gestión Empresarial", 105, pageHeight - 12, { align: 'center' });
-        doc.text("Calle Tecnológica 123, Ciudad de México | Tel: 55-1234-5678", 105, pageHeight - 8, { align: 'center' });
+        // Impuestos 8%
+        footerY += 8;
+        doc.text("Impuestos 8% (IVA)", rightColX, footerY);
+        doc.setFont("helvetica", "normal");
+        doc.text(`${quote.iva.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, valColX, footerY, { align: 'right' });
+
+        // Ret ISR
+        footerY += 6;
+        doc.setFont("helvetica", "bold");
+        doc.text("Ret. ISR 1.25", rightColX, footerY);
+        doc.setFont("helvetica", "normal");
+        const retIsr = quote.retIsr || 0;
+        doc.text(`${retIsr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, valColX, footerY, { align: 'right' });
+
+        // Pagado (Total) - Fondo Rojo Claro
+        footerY += 6;
+        // @ts-ignore
+        doc.setFillColor(255, 180, 180); // Light red
+        doc.rect(rightColX, footerY - 4, 60, 8, 'F');
+
+        doc.setFont("helvetica", "bold");
+        doc.text("Pagado", rightColX + 5, footerY + 1);
+        doc.setFontSize(12);
+        doc.text(`${quote.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, valColX, footerY + 1, { align: 'right' });
+
+
+        // --- DATOS BANCARIOS Y VENDEDOR (Bottom) ---
+        const pageHeight = doc.internal.pageSize.height;
+        const bottomY = pageHeight - 40;
+
+        // Cuadro Vendedor
+        doc.setDrawColor(0, 0, 0);
+        doc.rect(14, bottomY, 70, 25);
+
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.text("Vendedor", 16, bottomY + 5);
+        doc.setFont("helvetica", "italic");
+        doc.text(`Nombre: ${quote.agent}`, 16, bottomY + 10);
+        doc.text(`Correo: marredondo@prosesu.com`, 16, bottomY + 15); // Hardcoded from image
+        doc.text(`Numero: 664 276 5157`, 16, bottomY + 20); // Hardcoded from image
+
+        // Cuadro Datos Bancarios
+        doc.rect(84, bottomY, 112, 25);
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.text("Datos Bancarios", 86, bottomY + 5);
+        doc.setFont("helvetica", "italic");
+        doc.text("Cuenta CLABE: 002027902213663782", 86, bottomY + 10);
+        doc.text("Banco: Citibanamex", 86, bottomY + 15);
+        doc.text("Cuenta: 1366378", 86, bottomY + 20);
+        doc.text("Sucursal: 9022", 86, bottomY + 25);
 
         // Guardar
+        const safeName = quote.folio ? quote.folio.replace(/[^a-z0-9]/gi, '_') : 'cotizacion';
+        doc.save(`Cotizacion_${safeName}.pdf`);
         console.log("PDF guardado exitosamente");
     } catch (error) {
         console.error("Error CRÍTICO en generateQuotePDF:", error);

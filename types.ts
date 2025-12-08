@@ -70,6 +70,7 @@ export interface Quote {
   items: QuoteItem[];
   subtotal: number;
   iva: number;
+  retIsr?: number;
   total: number;
   notes: string;
   agent: string;

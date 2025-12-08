@@ -1,6 +1,7 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { HistoryItem } from '../types';
+import { getHistoryFromNotionDatabase } from '../services/notionService';
 
 interface RightSidebarProps {
     history: HistoryItem[];
@@ -20,6 +21,79 @@ const getIconForType = (type: string) => {
 
 const RightSidebar: React.FC<RightSidebarProps> = ({ history, isOpen, onClose, leadName }) => {
     const hasHistory = history.length > 0;
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
+    const [isDownloading, setIsDownloading] = useState(false);
+
+    const handleDownloadHistory = async () => {
+        if (!startDate || !endDate) {
+            alert("Por favor selecciona una fecha de inicio y fin.");
+            return;
+        }
+
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const diffTime = Math.abs(end.getTime() - start.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays > 31) {
+            alert("El periodo máximo de descarga es de 1 mes (31 días).");
+            return;
+        }
+
+        setIsDownloading(true);
+        try {
+            // Fetch filtered history directly from backend (which queries Notion)
+            // We pass undefined for leadId to get global history if no lead is selected,
+            // or we could filter by lead if leadName is present.
+            // However, the requirement seems to be "download history", likely global or contextual.
+            // Let's assume contextual if leadName is present, but the prompt says "historial de notas", implying global or current view.
+            // Since RightSidebar receives `history` prop which is already filtered by App.tsx logic,
+            // we might want to download *that* but with date filters?
+            // Actually, the user wants to "download specific days or periods".
+            // So we should probably fetch from backend with the date filters.
+
+            // Note: We don't have the leadId here easily unless we pass it.
+            // But `history` prop is what is shown.
+            // If we want to download what is shown but filtered by date, we could filter client-side if we had all data.
+            // But we don't have all data (pagination).
+            // So we fetch from backend.
+            // We need to know if we are in "Global" or "Lead" mode.
+            // leadName is passed. We don't have leadId passed to RightSidebar.
+            // Let's update the interface to accept leadId if needed, OR just download global if no leadName.
+            // Wait, App.tsx passes `leadName={leads.find(l => l.isSelected)?.name}`.
+            // We should probably pass leadId too to be precise.
+            // For now, let's implement the fetch. If leadName is present, we might need to filter by it in the backend response
+            // OR we update App.tsx to pass leadId.
+            // Let's assume Global for now or filter client side if the backend returns everything (which it does for now).
+
+            const filteredItems = await getHistoryFromNotionDatabase(undefined, startDate, endDate);
+
+            // Generate CSV
+            const csvContent = "data:text/csv;charset=utf-8,"
+                + "Fecha,Cliente,Tipo,Asesor,Detalle\n"
+                + filteredItems.map(e => {
+                    const date = e.timestamp.replace(/,/g, ''); // Remove commas to avoid CSV break
+                    const client = (e.clientName || "Sin Cliente").replace(/,/g, '');
+                    const desc = (e.description || "").replace(/,/g, ' ').replace(/\n/g, ' ');
+                    return `${date},${client},${e.type},${e.user.name},${desc}`;
+                }).join("\n");
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `historial_${startDate}_${endDate}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+        } catch (error) {
+            console.error("Error downloading history:", error);
+            alert("Error al descargar el historial.");
+        } finally {
+            setIsDownloading(false);
+        }
+    };
 
     return (
         <aside
@@ -37,7 +111,7 @@ const RightSidebar: React.FC<RightSidebarProps> = ({ history, isOpen, onClose, l
                     </button>
                 </div>
 
-                <div className="relative">
+                <div className="relative mb-4">
                     {leadName ? (
                         <div className="w-full glass-panel rounded-lg text-white text-xs px-4 py-3 font-bold truncate flex items-center gap-2 shadow-inner">
                             <span className="size-1.5 rounded-full bg-white shadow-glow"></span>
@@ -49,6 +123,40 @@ const RightSidebar: React.FC<RightSidebarProps> = ({ history, isOpen, onClose, l
                             <span>Actividad Global</span>
                         </div>
                     )}
+                </div>
+
+                {/* Date Range & Download */}
+                <div className="flex flex-col gap-2 bg-white/5 p-3 rounded-lg border border-white/5">
+                    <div className="flex gap-2">
+                        <div className="flex-1">
+                            <label className="text-[10px] text-gray-400 block mb-1">Desde</label>
+                            <input
+                                type="date"
+                                className="w-full bg-black/20 border border-white/10 rounded px-2 py-1 text-xs text-white outline-none focus:border-blue-500/50"
+                                onChange={(e) => setStartDate(e.target.value)}
+                            />
+                        </div>
+                        <div className="flex-1">
+                            <label className="text-[10px] text-gray-400 block mb-1">Hasta</label>
+                            <input
+                                type="date"
+                                className="w-full bg-black/20 border border-white/10 rounded px-2 py-1 text-xs text-white outline-none focus:border-blue-500/50"
+                                onChange={(e) => setEndDate(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                    <button
+                        onClick={handleDownloadHistory}
+                        disabled={isDownloading}
+                        className="w-full bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-xs font-bold py-2 rounded border border-blue-500/20 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {isDownloading ? (
+                            <span className="material-symbols-outlined text-[14px] animate-spin">progress_activity</span>
+                        ) : (
+                            <span className="material-symbols-outlined text-[14px]">download</span>
+                        )}
+                        {isDownloading ? 'Descargando...' : 'Descargar Periodo'}
+                    </button>
                 </div>
             </div>
 

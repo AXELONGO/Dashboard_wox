@@ -72,9 +72,13 @@ export const syncLeadToNotion = async (lead: Lead): Promise<boolean> => {
 
 // --- HISTORIAL ---
 
-export const getHistoryFromNotionDatabase = async (leadId?: string): Promise<HistoryItem[]> => {
+export const getHistoryFromNotionDatabase = async (leadId?: string, startDate?: string, endDate?: string): Promise<HistoryItem[]> => {
     try {
-        const response = await fetch(`${API_BASE_URL}/history`);
+        const params = new URLSearchParams();
+        if (startDate) params.append('startDate', startDate);
+        if (endDate) params.append('endDate', endDate);
+
+        const response = await fetch(`${API_BASE_URL}/history?${params.toString()}`);
 
         if (!response.ok) throw new Error(await response.text());
 
