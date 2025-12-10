@@ -1,4 +1,4 @@
-# ERP Sales Dashboard - Project Documentation
+# DASHBOARD ERP - Project Documentation
 
 ## Migration to Python/FastAPI & Tortoise ORM
 
