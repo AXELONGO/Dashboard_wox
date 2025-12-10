@@ -75,4 +75,15 @@ Si quieres cambiar algo:
     3.  Modifica `src/types.ts` para agregar el campo al tipo `Lead`.
     4.  Úsalo en tu componente React.
 
+
+## 🐛 Errores Comunes y Soluciones
+
+### "ModuleNotFoundError: No module named 'api.services'"
+Este error ocurre cuando Python se confunde con las rutas de las carpetas (importaciones relativas vs absolutas).
+
+*   **Problema**: `from .services.notion_service import ...` (el punto `.` significa "en esta misma carpeta").
+*   **Solución**: Usar la ruta completa `from services.notion_service import ...` para que Python lo encuentre sin problemas desde la raíz.
+
+---
+
 ¡Esperamos que esto te ayude a entender y mejorar el sistema! 🤓

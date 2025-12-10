@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Request, Body
 from typing import Optional, Dict, Any
-from .services.notion_service import NotionService
+from services.notion_service import NotionService
 import os
 import httpx
 import logging
