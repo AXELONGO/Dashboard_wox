@@ -5,8 +5,8 @@ import { LogOut, RefreshCw } from 'lucide-react';
 interface HeaderProps {
   onToggleLeftSidebar: () => void;
   onToggleRightSidebar: () => void;
-  activeTab: 'ventas' | 'cotizaciones';
-  onTabChange: (tab: 'ventas' | 'cotizaciones') => void;
+  activeTab: 'ventas' | 'cotizaciones' | 'clientes';
+  onTabChange: (tab: 'ventas' | 'cotizaciones' | 'clientes') => void;
   onLogout: () => void;
 }
 
@@ -38,6 +38,14 @@ const Header: React.FC<HeaderProps> = ({ onToggleLeftSidebar, onToggleRightSideb
           >
             Ventas
             {activeTab === 'ventas' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-white shadow-glow rounded-full"></span>}
+          </button>
+
+          <button
+            onClick={() => onTabChange('clientes')}
+            className={`text-sm font-medium leading-normal transition-all hover:text-glow px-2 py-1 relative ${activeTab === 'clientes' ? 'text-white' : 'text-gray-400 hover:text-white'} `}
+          >
+            Clientes
+            {activeTab === 'clientes' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-white shadow-glow rounded-full"></span>}
           </button>
 
           <button

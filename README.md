@@ -26,6 +26,8 @@ Ensure your `.env` file contains the following (Google Auth removed):
 VITE_NOTION_API_KEY=your_notion_key
 VITE_NOTION_DATABASE_ID=your_leads_db_id
 VITE_NOTION_HISTORY_DB_ID=your_history_db_id
+VITE_NOTION_CLIENTS_DB_ID=your_clients_db_id
+VITE_NOTION_CLIENTS_HISTORY_DB_ID=your_clients_history_db_id
 # VITE_GOOGLE_CLIENT_ID (Removed/Optional)
 ```
 
@@ -68,6 +70,7 @@ VITE_NOTION_HISTORY_DB_ID=your_history_db_id
 
 ### Features
 -   **Leads Management**: Syncs with Notion Database.
+-   **Clients Management**: Manage Clients and their history separately from Leads.
 -   **History**: Logs interactions with Notion History Database.
 -   **PDF Quotes**: Generates PDF quotes on the client side.
 -   **N8N Integration**: Proxies webhooks to N8N.

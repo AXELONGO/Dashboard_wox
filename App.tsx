@@ -5,6 +5,7 @@ import LeftSidebar from './components/LeftSidebar';
 import MainContent from './components/MainContent';
 import RightSidebar from './components/RightSidebar';
 import QuotesView from './components/QuotesView';
+import ClientsView from './components/ClientsView';
 import Chatbot from './components/Chatbot';
 import { Lead, HistoryItem } from './types';
 import { generateLeadsByLocation } from './services/geminiService';
@@ -14,7 +15,9 @@ import {
     getLeadsFromNotion,
     getHistoryFromNotionDatabase,
     addHistoryToNotionDatabase,
-    updateLeadClass
+    updateLeadClass,
+    getClientsFromNotion,
+    getClientsHistoryFromNotionDatabase
 } from './services/notionService';
 
 // import { GoogleOAuthProvider } from '@react-oauth/google';
@@ -32,11 +35,13 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
     // --- STATE: Data ---
     const [leads, setLeads] = useState<Lead[]>([]);
+    const [clients, setClients] = useState<Lead[]>([]); // New state for Clients
     const [history, setHistory] = useState<HistoryItem[]>(INITIAL_HISTORY);
     const [globalHistory, setGlobalHistory] = useState<HistoryItem[]>([]);
+    const [clientsHistory, setClientsHistory] = useState<HistoryItem[]>([]); // New state for Clients History
 
     // --- STATE: UI & Async Status ---
-    const [activeTab, setActiveTab] = useState<'ventas' | 'cotizaciones'>('ventas');
+    const [activeTab, setActiveTab] = useState<'ventas' | 'cotizaciones' | 'clientes'>('ventas');
     const [isSearching, setIsSearching] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
     const [isLoadingNotion, setIsLoadingNotion] = useState(true);
@@ -50,15 +55,21 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
         const initData = async () => {
             setIsLoadingNotion(true);
             try {
-                const [notionLeads, notionHistory] = await Promise.all([
+                const [notionLeads, notionHistory, notionClients, notionClientsHistory] = await Promise.all([
                     getLeadsFromNotion(),
-                    getHistoryFromNotionDatabase() // Global load
+                    getHistoryFromNotionDatabase(),
+                    getClientsFromNotion(),
+                    getClientsHistoryFromNotionDatabase()
                 ]);
 
                 if (notionLeads.length > 0) {
                     setLeads(notionLeads);
                 } else {
                     setLeads(FALLBACK_LEADS);
+                }
+
+                if (notionClients.length > 0) {
+                    setClients(notionClients);
                 }
 
                 // Cruzamos datos para poner nombres a las tarjetas
@@ -73,6 +84,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
 
                 setGlobalHistory(enrichedHistory);
                 setHistory(enrichedHistory);
+                setClientsHistory(notionClientsHistory);
 
             } catch (error) {
                 console.error("Fallo crítico al cargar datos:", error);
@@ -121,6 +133,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
     };
 
     const toggleSelectLead = async (id: string) => {
+        if (activeTab === 'clientes') {
+            setClients(prev => prev.map(c => c.id === id ? { ...c, isSelected: !c.isSelected } : { ...c, isSelected: false }));
+            // Here we could handle history for clients if sidebar supported it
+            return;
+        }
+
         setLeads(prev => prev.map(l => l.id === id ? { ...l, isSelected: !l.isSelected } : { ...l, isSelected: false }));
 
         const targetLead = leads.find(l => l.id === id);
@@ -159,6 +177,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
             setHistory(globalHistory);
         }
     };
+
 
     const handleClassChange = async (id: string, newClass: string) => {
         // Optimistic
@@ -310,6 +329,15 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                                 onGenerateDailyReport={() => generateDailyReportPDF(history)}
                             />
                         </>
+                    ) : activeTab === 'clientes' ? (
+                        <ClientsView
+                            clients={clients}
+                            history={clientsHistory}
+                            toggleSelectClient={toggleSelectLead} // Reusing toggle logic
+                            onSyncToNotion={() => { }} // No auto-sync for now on button
+                            isSyncing={false}
+                            onClassChange={handleClassChange} // Reuse class change logic if IDs match logic
+                        />
                     ) : (
                         <QuotesView leads={leads} />
                     )}

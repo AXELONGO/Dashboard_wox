@@ -102,7 +102,7 @@ Cuando algo falla, no entres en pánico. Usa el método científico.
 ## 5. Mapa de Puntos Críticos (Dónde tener cuidado)
 
 *   **`nginx.conf`**: Las señales de tráfico. Si tocas esto mal, nadie llega a ningún lado.
-*   **`QuotesView.tsx`**: El formulario gigante. Es complejo. Trátalo con respeto.
+*   **`QuotesView.tsx`** y **`ClientsView.tsx`**: Las vistas principales. Son complejas. Trátalas con respeto.
 *   **`rebuild.sh`**: Tu botón de reinicio maestro. Si todo falla, ejecútalo.
 
 ---

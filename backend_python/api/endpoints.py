@@ -51,7 +51,45 @@ async def update_page(page_id: str, body: Dict[str, Any] = Body(...)):
     try:
         properties = body.get("properties")
         archived = body.get("archived", False)
-        return await notion_service.update_page(page_id, properties, archived)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- CLIENTS ENDPOINTS ---
+
+@router.get("/clients")
+async def get_clients():
+    try:
+        return await notion_service.get_clients()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/clients")
+async def create_client(client: Dict[str, Any] = Body(...)):
+    try:
+        return await notion_service.create_client(client)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/clients/history")
+async def get_clients_history(startDate: Optional[str] = None, endDate: Optional[str] = None):
+    try:
+        return await notion_service.get_clients_history(startDate, endDate)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/clients/history")
+async def create_client_history_item(item: Dict[str, Any] = Body(...)):
+    try:
+        # Reusing similar payload structure as history
+        client_id = item.get("clientId") # Changed from leadId to clientId for clarity, but logic is same ID
+        text = item.get("text")
+        agent = item.get("agent")
+        interaction_type = item.get("interactionType")
+        
+        if not all([client_id, text, agent, interaction_type]):
+             raise HTTPException(status_code=400, detail="Missing fields")
+
+        return await notion_service.create_client_history(client_id, text, agent, interaction_type)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

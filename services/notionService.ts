@@ -155,4 +155,104 @@ export const updatePage = async (pageId: string, properties: any): Promise<boole
         console.error("Error updating page:", error);
         return false;
     }
+}
+
+// --- CLIENTES METHODS ---
+
+export const getClientsFromNotion = async (): Promise<Lead[]> => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/clients`);
+
+        if (!response.ok) {
+            const errText = await response.text();
+            console.error(`❌ Error Backend Clients: ${response.status}`, errText);
+            throw new Error(errText);
+        }
+
+        const clients = await response.json();
+        return clients;
+
+    } catch (error) {
+        console.error("Error crítico obteniendo clientes del backend:", error);
+        return [];
+    }
+};
+
+export const syncClientToNotion = async (client: Lead): Promise<boolean> => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/clients`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(client)
+        });
+
+        if (!response.ok) {
+            console.error("❌ Error Sync Client:", await response.text());
+            return false;
+        }
+
+        const data = await response.json();
+        client.id = data.id;
+        return true;
+    } catch (error) {
+        console.error("❌ Error de red Sync Client:", error);
+        return false;
+    }
+};
+
+export const getClientsHistoryFromNotionDatabase = async (clientId?: string, startDate?: string, endDate?: string): Promise<HistoryItem[]> => {
+    try {
+        const params = new URLSearchParams();
+        if (startDate) params.append('startDate', startDate);
+        if (endDate) params.append('endDate', endDate);
+
+        const response = await fetch(`${API_BASE_URL}/clients/history?${params.toString()}`);
+
+        if (!response.ok) throw new Error(await response.text());
+
+        let items = await response.json();
+
+        if (clientId) {
+            items = items.filter((i: HistoryItem) => i.clientId === clientId);
+        }
+
+        return items;
+
+    } catch (e) {
+        console.error("❌ Error leyendo historial de clientes del backend:", e);
+        return [];
+    }
+};
+
+export const addClientHistoryToNotionDatabase = async (clientId: string, text: string, agent: string, interactionType: string): Promise<HistoryItem | null> => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/clients/history`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ clientId, text, agent, interactionType })
+        });
+
+        if (!response.ok) {
+            console.error("❌ Error adding client history:", await response.text());
+            return null;
+        }
+
+        const data = await response.json();
+
+        return {
+            id: data.id,
+            type: interactionType.toLowerCase().includes('mail') || interactionType.toLowerCase().includes('what') ? 'email' : 'note',
+            title: interactionType,
+            description: text,
+            timestamp: new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+            isoDate: new Date().toISOString(),
+            user: { name: agent, avatarUrl: '' },
+            clientId: clientId,
+            isSynced: true
+        };
+
+    } catch (error) {
+        console.error("❌ Error de red al conectar con Notion (Clientes):", error);
+        return null;
+    }
 };
