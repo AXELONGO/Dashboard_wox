@@ -213,8 +213,8 @@ const QuotesView: React.FC<QuotesViewProps> = ({ leads }) => {
     };
 
     // Styles for light inputs on dark background - Texto negro, fondo blanco
-    const inputClass = "w-full rounded-lg py-3 px-4 text-sm bg-white text-black border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none shadow-sm transition-all placeholder-gray-400 font-medium cursor-text";
-    const labelClass = "text-xs font-bold text-gray-300 uppercase tracking-wide mb-1 block";
+    const inputClass = "w-full rounded-lg py-3 px-4 text-sm bg-black/40 text-white border border-white/10 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none shadow-sm transition-all placeholder-gray-500 font-medium cursor-text";
+    const labelClass = "text-xs font-bold text-white uppercase tracking-wide mb-1 block";
 
     return (
         <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-8 animate-in fade-in duration-500 scroll-smooth pb-40">
@@ -281,11 +281,11 @@ const QuotesView: React.FC<QuotesViewProps> = ({ leads }) => {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className={labelClass}>Fecha</label>
-                                        <input type="text" disabled value={new Date().toLocaleDateString()} className={`${inputClass} bg-gray-200 text-gray-600 cursor-not-allowed`} />
+                                        <input type="text" disabled value={new Date().toLocaleDateString()} className={`${inputClass} bg-white/5 text-gray-400 cursor-not-allowed`} />
                                     </div>
                                     <div>
                                         <label className={labelClass}>Folio (Auto)</label>
-                                        <input type="text" disabled value="###" className={`${inputClass} bg-gray-200 text-gray-600 cursor-not-allowed`} />
+                                        <input type="text" disabled value="###" className={`${inputClass} bg-white/5 text-gray-400 cursor-not-allowed`} />
                                     </div>
                                 </div>
                                 <div>
@@ -307,7 +307,7 @@ const QuotesView: React.FC<QuotesViewProps> = ({ leads }) => {
                     <div className="mb-6 overflow-x-auto bg-white/5 rounded-xl p-1 border border-white/10">
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="text-xs text-gray-400 uppercase border-b border-white/10">
+                                <tr className="text-xs text-white uppercase border-b border-white/10">
                                     <th className="py-3 px-3 w-20 text-center">Cant</th>
                                     <th className="py-3 px-3">Descripción</th>
                                     <th className="py-3 px-3 w-36 text-right">P. Unitario</th>
@@ -337,7 +337,7 @@ const QuotesView: React.FC<QuotesViewProps> = ({ leads }) => {
                                         </td>
                                         <td className="py-2 px-2">
                                             <div className="relative">
-                                                <span className="absolute left-3 top-2.5 text-black text-xs font-bold z-10">$</span>
+                                                <span className="absolute left-3 top-2.5 text-white text-xs font-bold z-10">$</span>
                                                 <input
                                                     type="text"
                                                     inputMode="decimal"
@@ -353,7 +353,7 @@ const QuotesView: React.FC<QuotesViewProps> = ({ leads }) => {
                                         <td className="py-2 px-2 text-center">
                                             <button
                                                 onClick={() => removeItem(item.id)}
-                                                className="text-gray-500 hover:text-red-400 transition-colors p-2 rounded hover:bg-white/10"
+                                                className="text-white hover:text-red-400 transition-colors p-2 rounded hover:bg-white/10"
                                                 title="Eliminar fila"
                                             >
                                                 <span className="material-symbols-outlined text-[20px]">delete</span>
@@ -383,7 +383,7 @@ const QuotesView: React.FC<QuotesViewProps> = ({ leads }) => {
                             ></textarea>
                         </div>
                         <div className="space-y-4 bg-white/5 p-6 rounded-xl border border-white/5">
-                            <div className="flex justify-between text-gray-300 text-sm">
+                            <div className="flex justify-between text-white text-sm">
                                 <span>Subtotal</span>
                                 <span className="font-mono text-white">${subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
@@ -391,11 +391,11 @@ const QuotesView: React.FC<QuotesViewProps> = ({ leads }) => {
                                 <span>Subtotal</span>
                                 <span className="font-mono text-white">${subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
-                            <div className="flex justify-between text-gray-300 text-sm">
+                            <div className="flex justify-between text-white text-sm">
                                 <span>IVA (8%)</span>
                                 <span className="font-mono text-white">${iva.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
-                            <div className="flex justify-between text-gray-300 text-sm">
+                            <div className="flex justify-between text-white text-sm">
                                 <span>Ret. ISR (1.25%)</span>
                                 <span className="font-mono text-red-400">-${retIsr.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>

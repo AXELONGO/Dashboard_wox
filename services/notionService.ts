@@ -224,6 +224,26 @@ export const getClientsHistoryFromNotionDatabase = async (clientId?: string, sta
     }
 };
 
+export const createClientInNotion = async (clientData: Partial<Lead>): Promise<Lead | null> => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/clients`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(clientData)
+        });
+
+        if (!response.ok) {
+            throw new Error(`Error creating client: ${response.statusText}`);
+        }
+
+        const newClient = await response.json();
+        return newClient;
+    } catch (error) {
+        console.error("Error creating client in Notion:", error);
+        return null;
+    }
+};
+
 export const addClientHistoryToNotionDatabase = async (clientId: string, text: string, agent: string, interactionType: string): Promise<HistoryItem | null> => {
     try {
         const response = await fetch(`${API_BASE_URL}/clients/history`, {
@@ -254,5 +274,19 @@ export const addClientHistoryToNotionDatabase = async (clientId: string, text: s
     } catch (error) {
         console.error("❌ Error de red al conectar con Notion (Clientes):", error);
         return null;
+    }
+};
+
+export const getSupportTicketsFromNotion = async (): Promise<any[]> => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/support-tickets`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const tickets = await response.json();
+        return tickets;
+    } catch (error) {
+        console.error("Error fetching support tickets:", error);
+        return [];
     }
 };

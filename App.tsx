@@ -3,13 +3,13 @@ import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import LeftSidebar from './components/LeftSidebar';
 import MainContent from './components/MainContent';
-import RightSidebar from './components/RightSidebar';
 import QuotesView from './components/QuotesView';
 import ClientsView from './components/ClientsView';
+import MassSenderView from './components/MassSenderView';
 import Chatbot from './components/Chatbot';
 import { Lead, HistoryItem } from './types';
-import { generateLeadsByLocation } from './services/geminiService';
-import { generatePDF, generateDailyReportPDF } from './services/pdfService';
+import { generatePDF, generateDailyReportPDF, generateDateRangeReportPDF } from './services/pdfService';
+import DateRangeModal from './components/DateRangeModal';
 import {
     syncLeadToNotion,
     getLeadsFromNotion,
@@ -17,11 +17,11 @@ import {
     addHistoryToNotionDatabase,
     updateLeadClass,
     getClientsFromNotion,
-    getClientsHistoryFromNotionDatabase
+    getClientsHistoryFromNotionDatabase,
+    getSupportTicketsFromNotion,
+    addClientHistoryToNotionDatabase // Import the client history function
 } from './services/notionService';
 
-// import { GoogleOAuthProvider } from '@react-oauth/google';
-// import Login from './components/Login';
 
 // Initial Mock Data (Fallback)
 const FALLBACK_LEADS: Lead[] = [];
@@ -35,31 +35,32 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
     // --- STATE: Data ---
     const [leads, setLeads] = useState<Lead[]>([]);
-    const [clients, setClients] = useState<Lead[]>([]); // New state for Clients
+    const [clients, setClients] = useState<Lead[]>([]);
     const [history, setHistory] = useState<HistoryItem[]>(INITIAL_HISTORY);
     const [globalHistory, setGlobalHistory] = useState<HistoryItem[]>([]);
-    const [clientsHistory, setClientsHistory] = useState<HistoryItem[]>([]); // New state for Clients History
+    const [clientsHistory, setClientsHistory] = useState<HistoryItem[]>([]);
+    const [supportTickets, setSupportTickets] = useState<any[]>([]);
 
     // --- STATE: UI & Async Status ---
-    const [activeTab, setActiveTab] = useState<'ventas' | 'cotizaciones' | 'clientes'>('ventas');
-    const [isSearching, setIsSearching] = useState(false);
+    const [activeTab, setActiveTab] = useState<'ventas' | 'cotizaciones' | 'clientes' | 'masivos'>('ventas');
     const [isSyncing, setIsSyncing] = useState(false);
     const [isLoadingNotion, setIsLoadingNotion] = useState(true);
 
     const [activeLeadId, setActiveLeadId] = useState<string | null>(null);
 
-    const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
-    const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
+    const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(window.innerWidth >= 1024); // Default open on desktop, closed on mobile
+    const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
     useEffect(() => {
         const initData = async () => {
             setIsLoadingNotion(true);
             try {
-                const [notionLeads, notionHistory, notionClients, notionClientsHistory] = await Promise.all([
+                const [notionLeads, notionHistory, notionClients, notionClientsHistory, notionSupport] = await Promise.all([
                     getLeadsFromNotion(),
                     getHistoryFromNotionDatabase(),
                     getClientsFromNotion(),
-                    getClientsHistoryFromNotionDatabase()
+                    getClientsHistoryFromNotionDatabase(),
+                    getSupportTicketsFromNotion()
                 ]);
 
                 if (notionLeads.length > 0) {
@@ -70,6 +71,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
 
                 if (notionClients.length > 0) {
                     setClients(notionClients);
+                }
+
+                if (notionSupport) {
+                    setSupportTickets(notionSupport);
                 }
 
                 // Cruzamos datos para poner nombres a las tarjetas
@@ -96,50 +101,85 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
         initData();
     }, []);
 
-    const handleSearchLeads = async (location: string) => {
-        setIsSearching(true);
-        if (window.innerWidth < 1024) {
-            setIsLeftSidebarOpen(false);
+    // --- EFFECT: Switch History Context on Tab Change ---
+    useEffect(() => {
+        // When tab changes, reset selection and switch history source
+        setActiveLeadId(null);
+
+        // Also clear selections in state to avoid confusion
+        setLeads(prev => prev.map(l => ({ ...l, isSelected: false })));
+        setClients(prev => prev.map(c => ({ ...c, isSelected: false })));
+
+        if (activeTab === 'clientes') {
+            // Enrich clients history with client names
+            const enrichedClientsHistory = clientsHistory.map(h => {
+                const client = clients.find(c => c.id === h.clientId);
+                return {
+                    ...h,
+                    clientName: client ? client.name : (h.clientName || 'Cliente'),
+                    clientWebsite: client ? client.website : undefined
+                };
+            });
+            // Show Clients History Global (or empty if preferred, but user implies seeing history)
+            setHistory(enrichedClientsHistory.sort((a, b) => b.timestamp.localeCompare(a.timestamp)));
+        } else if (activeTab === 'ventas') {
+            // Show Sales Global History
+            setHistory(globalHistory);
         }
-
-        const webhookUrl = 'https://automatizaciones-n8n.tzudkj.easypanel.host/webhook/Leads';
-
-        fetch(webhookUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                location: location,
-                timestamp: new Date().toISOString(),
-                action: "search_leads"
-            })
-        }).catch(err => console.error("WebHook Error", err));
-
-        try {
-            const newLeadsData = await generateLeadsByLocation(location);
-            const newLeads: Lead[] = newLeadsData.map((l, index) => ({
-                ...l,
-                id: `gen-${Date.now()}-${index}`,
-                isSelected: false,
-                isSynced: false,
-                clase: 'C',
-                category: (['Transporte', 'Software', 'Consultoría', 'Industrial'].includes(l.category) ? l.category : 'Otros') as Lead['category']
-            }));
-            setLeads(prev => [...newLeads, ...prev]);
-        } catch (e) {
-            console.error("Failed to generate leads", e);
-        } finally {
-            setIsSearching(false);
-        }
-    };
+        // For other tabs we might not care or keep previous
+    }, [activeTab, globalHistory, clientsHistory, clients]);
 
     const toggleSelectLead = async (id: string) => {
         if (activeTab === 'clientes') {
-            setClients(prev => prev.map(c => c.id === id ? { ...c, isSelected: !c.isSelected } : { ...c, isSelected: false }));
-            // Here we could handle history for clients if sidebar supported it
+            setClients(prev => prev.map(c => {
+                if (c.id === id) {
+                    const newSelectedState = !c.isSelected;
+                    if (newSelectedState) {
+                        setIsLeftSidebarOpen(true);
+                    }
+                    return { ...c, isSelected: newSelectedState };
+                }
+                return { ...c, isSelected: false };
+            }));
+
+            const targetClient = clients.find(c => c.id === id);
+            const willBeSelected = targetClient && !targetClient.isSelected;
+
+            if (willBeSelected) {
+                // Filter CLIENTS HISTORY
+                const clientEvents = clientsHistory.filter(h => h.clientId === id);
+                // Enrich with client name for display
+                const enrichedEvents = clientEvents.map(h => ({
+                    ...h,
+                    clientName: targetClient.name,
+                    clientWebsite: targetClient.website
+                }));
+                setHistory(enrichedEvents);
+            } else {
+                // For clients tab fallback
+                const allClientsEvents = clientsHistory.map(h => {
+                    const c = clients.find(cl => cl.id === h.clientId);
+                    return {
+                        ...h,
+                        clientName: c ? c.name : 'Unknown',
+                        clientWebsite: c ? c.website : undefined
+                    };
+                });
+                setHistory(allClientsEvents);
+            }
             return;
         }
 
-        setLeads(prev => prev.map(l => l.id === id ? { ...l, isSelected: !l.isSelected } : { ...l, isSelected: false }));
+        setLeads(prev => prev.map(l => {
+            if (l.id === id) {
+                const newSelectedState = !l.isSelected;
+                if (newSelectedState) {
+                    setIsLeftSidebarOpen(true);
+                }
+                return { ...l, isSelected: newSelectedState };
+            }
+            return { ...l, isSelected: false };
+        }));
 
         const targetLead = leads.find(l => l.id === id);
         const willBeSelected = targetLead && !targetLead.isSelected;
@@ -155,7 +195,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
             if (targetLead?.isSynced) {
                 getHistoryFromNotionDatabase(id).then(notionHistory => {
                     if (notionHistory.length > 0) {
-                        // IMPORTANTE: Los items frescos no tienen nombre. Se lo pegamos:
                         const enrichedFresh = notionHistory.map(h => ({
                             ...h,
                             clientName: targetLead.name,
@@ -180,7 +219,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
 
 
     const handleClassChange = async (id: string, newClass: string) => {
-        // Optimistic
         setLeads(prev => prev.map(l => l.id === id ? { ...l, clase: newClass as 'A' | 'B' | 'C' } : l));
 
         const lead = leads.find(l => l.id === id);
@@ -193,7 +231,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
     };
 
     const handleSaveNote = async (text: string, agent: string, interactionType: string) => {
-        const selectedLead = leads.find(l => l.isSelected);
+        const selectedLead = activeTab === 'clientes'
+            ? clients.find(c => c.isSelected)
+            : leads.find(l => l.isSelected);
+
         if (!selectedLead) return;
 
         const tempId = `temp-${Date.now()}`;
@@ -211,9 +252,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
             isSynced: false
         };
 
-        // Mostrar inmediatamente
         setHistory(prev => [optimisticItem, ...prev]);
-        setGlobalHistory(prev => [optimisticItem, ...prev]);
+
+        // Only update global history if it's the main sales flow, otherwise we might be in clients history scope
+        // But simplifying, we can update global if keeping track
+        if (activeTab === 'ventas') {
+            setGlobalHistory(prev => [optimisticItem, ...prev]);
+        }
 
         // Webhook N8N
         const webhookUrl = 'https://automatizaciones-n8n.tzudkj.easypanel.host/webhook/CARGAR NOTAS';
@@ -233,57 +278,51 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
         try {
             let targetLeadId = selectedLead.id;
 
-            // 1. Si el lead no está sincronizado, sincronizarlo primero
-            if (!selectedLead.isSynced) {
+            // 1. Si el lead no está sincronizado, sincronizarlo primero (Sólo para Leads de Ventas)
+            // Para Clientes, asumimos que ya tienen ID real de Notion porque vienen de la DB
+            if (activeTab === 'ventas' && !selectedLead.isSynced) {
                 const synced = await syncLeadToNotion(selectedLead);
                 if (synced) {
-                    targetLeadId = selectedLead.id; // El ID se actualizó in-place en syncLeadToNotion
-                    // Actualizar estado del lead
+                    targetLeadId = selectedLead.id;
                     setLeads(prev => prev.map(l => l.id === selectedLead.id ? { ...l, id: targetLeadId, isSynced: true } : l));
                 } else {
                     console.error("No se pudo sincronizar el lead. La nota no se guardará en Notion.");
-                    // Aún así dejamos la nota local
                     return;
                 }
             }
 
-            // 2. Guardar la nota asociada al ID real
-            const createdItem = await addHistoryToNotionDatabase(targetLeadId, text, agent, interactionType);
+            // 2. Guardar la nota (Contextual)
+            let createdItem: HistoryItem | null = null;
+
+            if (activeTab === 'clientes') {
+                // Save to CLIENTS DB
+                createdItem = await addClientHistoryToNotionDatabase(targetLeadId, text, agent, interactionType);
+            } else {
+                // Save to SALES/LEADS DB
+                createdItem = await addHistoryToNotionDatabase(targetLeadId, text, agent, interactionType);
+            }
 
             if (createdItem) {
-                // ÉXITO: Actualizamos el ítem con ID real Y NOMBRE
                 const newItemWithClientName = {
                     ...createdItem,
                     clientName: selectedLead.name,
                     clientWebsite: selectedLead.website
                 };
 
-                setHistory(prev => prev.map(item => item.id === tempId ? newItemWithClientName : item));
-                setGlobalHistory(prev => prev.map(item => item.id === tempId ? newItemWithClientName : item));
+                // Update local state immediately
+                setHistory(prev => [newItemWithClientName, ...prev]);
+
+                // Update backing stores
+                if (activeTab === 'ventas') {
+                    setGlobalHistory(prev => [newItemWithClientName, ...prev]);
+                } else if (activeTab === 'clientes') {
+                    setClientsHistory(prev => [newItemWithClientName, ...prev]);
+                }
             } else {
-                console.error("No se pudo guardar la nota en Notion. Se mantendrá localmente hasta recargar.");
+                console.error("No se pudo guardar la nota en Notion.");
             }
         } catch (error) {
             console.error("Error en flujo de guardado:", error);
-        }
-    };
-
-    const handleExport = async () => {
-        const selectedLead = leads.find(l => l.isSelected);
-        if (!selectedLead) return;
-
-        setIsSyncing(true);
-        try {
-            if (!selectedLead.isSynced) {
-                await syncLeadToNotion(selectedLead);
-                setLeads(prev => prev.map(l => l.id === selectedLead.id ? { ...l, isSynced: true } : l));
-            }
-            generatePDF(selectedLead, history);
-        } catch (error) {
-            console.error("Export failed", error);
-            alert("Hubo un error al generar la exportación.");
-        } finally {
-            setIsSyncing(false);
         }
     };
 
@@ -291,71 +330,73 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
         <div className="flex flex-col h-full relative font-display bg-obsidian">
             <Header
                 onToggleLeftSidebar={() => setIsLeftSidebarOpen(!isLeftSidebarOpen)}
-                onToggleRightSidebar={() => setIsRightSidebarOpen(!isRightSidebarOpen)}
+                onToggleRightSidebar={() => { }} // No-op, removed right sidebar
                 activeTab={activeTab}
                 onTabChange={setActiveTab}
-                // user={user} // Pass user to Header if needed
                 onLogout={onLogout}
             />
 
             <div className="flex flex-col flex-1 overflow-hidden relative">
                 <div className="flex flex-1 overflow-hidden relative">
+
+                    {/* Unified Left Sidebar for all tabs (except Masivos? or maybe inclusive) */}
+                    {/* We keep it persistent if desired, or conditional. Let's keep it persistent for consistency. */}
+                    {activeTab !== 'masivos' && (
+                        <LeftSidebar
+                            isOpen={isLeftSidebarOpen}
+                            onClose={() => setIsLeftSidebarOpen(false)}
+                            history={history}
+                            supportTickets={supportTickets}
+                            selectedLeadName={
+                                activeTab === 'clientes'
+                                    ? clients.find(c => c.isSelected)?.name
+                                    : leads.find(l => l.isSelected)?.name
+                            }
+                            onSaveNote={handleSaveNote}
+                        />
+                    )}
+
                     {activeTab === 'ventas' ? (
-                        <>
-                            <LeftSidebar
-                                onSearchLeads={handleSearchLeads}
-                                isSearching={isSearching}
-                                isOpen={isLeftSidebarOpen}
-                                onClose={() => setIsLeftSidebarOpen(false)}
-                                selectedLeadName={leads.find(l => l.isSelected)?.name}
-                                selectedLeadAgent={leads.find(l => l.isSelected)?.agent}
-                                onSaveNote={handleSaveNote}
-                            />
-
-                            <RightSidebar
-                                history={history}
-                                isOpen={isRightSidebarOpen}
-                                onClose={() => setIsRightSidebarOpen(false)}
-                                leadName={leads.find(l => l.isSelected)?.name}
-                            />
-
-                            <MainContent
-                                leads={leads}
-                                history={history}
-                                toggleSelectLead={toggleSelectLead}
-                                onSyncToNotion={handleExport}
-                                isSyncing={isSyncing}
-                                onClassChange={handleClassChange}
-                                onGenerateDailyReport={() => generateDailyReportPDF(history)}
-                            />
-                        </>
+                        <MainContent
+                            leads={leads}
+                            history={history}
+                            toggleSelectLead={toggleSelectLead}
+                            onSyncToNotion={syncLeadToNotion}
+                            isSyncing={isSyncing}
+                            onClassChange={handleClassChange}
+                            onGenerateDailyReport={() => setIsReportModalOpen(true)}
+                        />
+                    ) : activeTab === 'cotizaciones' ? (
+                        <QuotesView leads={leads} onBack={() => setActiveTab('ventas')} />
                     ) : activeTab === 'clientes' ? (
                         <ClientsView
                             clients={clients}
                             history={clientsHistory}
-                            toggleSelectClient={toggleSelectLead} // Reusing toggle logic
-                            onSyncToNotion={() => { }} // No auto-sync for now on button
-                            isSyncing={false}
-                            onClassChange={handleClassChange} // Reuse class change logic if IDs match logic
+                            toggleSelectClient={toggleSelectLead}
+                            onSyncToNotion={syncLeadToNotion}
+                            isSyncing={isSyncing}
+                            onClassChange={handleClassChange}
                         />
                     ) : (
-                        <QuotesView leads={leads} />
+                        <MassSenderView />
                     )}
                 </div>
             </div>
 
             <Chatbot />
+            <DateRangeModal
+                isOpen={isReportModalOpen}
+                onClose={() => setIsReportModalOpen(false)}
+                onGenerate={(start, end) => generateDateRangeReportPDF(globalHistory, start, end)}
+            />
         </div>
     );
 };
 
 const App: React.FC = () => {
-    // Auth removed as per user request
-    const mockUser = { name: "Usuario", email: "admin@erp.com" }; // User placeholder
+    const mockUser = { name: "Usuario", email: "admin@erp.com" };
 
     return <Dashboard user={mockUser} onLogout={() => console.log("Logout disabled")} />;
 };
 
 export default App;
-
-

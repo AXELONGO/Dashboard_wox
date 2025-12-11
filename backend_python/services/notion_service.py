@@ -12,6 +12,7 @@ class NotionService:
         self.history_db_id = os.getenv("NOTION_HISTORY_DB_ID")
         self.clients_db_id = os.getenv("NOTION_CLIENTS_DB_ID")
         self.clients_history_db_id = os.getenv("NOTION_CLIENTS_HISTORY_DB_ID")
+        self.support_db_id = os.getenv("NOTION_SUPPORT_DB_ID")
 
 
     async def get_leads(self) -> List[Dict[str, Any]]:
@@ -216,6 +217,73 @@ class NotionService:
         except Exception as e:
             logger.error(f"Error fetching clients history: {e}")
             raise e
+
+    async def get_support_tickets(self) -> List[Dict[str, Any]]:
+        """Fetch support tickets from Notion."""
+        if not self.support_db_id:
+             logger.error("NOTION_SUPPORT_DB_ID not set")
+             return []
+
+        all_results = []
+        has_more = True
+        next_cursor = None
+        
+        while has_more:
+            try:
+                response = await self.notion.databases.query( # Changed self.client to self.notion
+                    database_id=self.support_db_id,
+                    page_size=100,
+                    start_cursor=next_cursor,
+                    sorts=[
+                        {
+                            "timestamp": "created_time",
+                            "direction": "descending"
+                        }
+                    ]
+                )
+                all_results.extend(response.get("results", []))
+                has_more = response.get("has_more")
+                next_cursor = response.get("next_cursor")
+            except Exception as e:
+                logger.error(f"Error fetching support tickets: {e}")
+                # Don't raise, just return empty list or what we have
+                has_more = False
+
+        # Process specifically for tickets if needed, or return raw
+        # For simplicity, returning raw or minimally processed
+        # Here we just want Title, Status, etc.
+        # Let's verify data structure later or do basic processing here.
+        processed_tickets = []
+        for page in all_results:
+             props = page.get("properties", {})
+             # Adjust property names based on Notion DB structure.
+             # Assuming standard: 'Name' or 'Title', 'Status', 'Description'
+             # Since we don't know exact props, we'll try to guess or dump all.
+             
+             # Extract title safely
+             title = "Sin Título"
+             if "Name" in props and props["Name"]["title"]:
+                 title = props["Name"]["title"][0]["plain_text"]
+             elif "Ticket" in props and props["Ticket"]["title"]: # Common name
+                  title = props["Ticket"]["title"][0]["plain_text"]
+             elif "Título" in props and props["Título"]["title"]:
+                  title = props["Título"]["title"][0]["plain_text"]
+             
+             status = "Abierto"
+             if "Status" in props and props["Status"]["select"]:
+                 status = props["Status"]["select"]["name"]
+             elif "Estado" in props and props["Estado"]["select"]:
+                 status = props["Estado"]["select"]["name"]
+
+             processed_tickets.append({
+                 "id": page["id"],
+                 "title": title,
+                 "status": status,
+                 "url": page["url"],
+                 "last_edited": page["last_edited_time"]
+             })
+             
+        return processed_tickets
 
     async def create_client(self, client: Dict[str, Any]) -> Dict[str, Any]:
         if not self.clients_db_id:

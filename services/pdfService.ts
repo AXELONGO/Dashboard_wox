@@ -461,3 +461,84 @@ export const generateDailyReportPDF = (history: HistoryItem[]) => {
 
     doc.save(`Reporte_Diario_${todayStr}.pdf`);
 };
+
+export const generateDateRangeReportPDF = (history: HistoryItem[], startDate: string, endDate: string) => {
+    const doc = new jsPDF();
+    const startObj = new Date(startDate);
+    const endObj = new Date(endDate);
+    // Adjust end date to include the full day (23:59:59)
+    const endObjInclusive = new Date(endDate);
+    endObjInclusive.setHours(23, 59, 59, 999);
+
+    // Normalize start to 00:00
+    startObj.setHours(0, 0, 0, 0);
+
+    const filteredItems = history.filter(item => {
+        let itemDate: Date;
+        if (item.isoDate) {
+            itemDate = new Date(item.isoDate);
+        } else if (item.timestamp) {
+            // Fallback for string timestamp if possible, but mainly relying on isoDate for accuracy
+            const d = new Date(item.timestamp);
+            if (!isNaN(d.getTime())) itemDate = d;
+            else return false;
+        } else {
+            return false;
+        }
+        return itemDate >= startObj && itemDate <= endObjInclusive;
+    });
+
+    if (filteredItems.length === 0) {
+        alert("No hay actividad registrada en este rango de fechas.");
+        return;
+    }
+
+    // --- HEADER ---
+    doc.setFillColor(3, 7, 17); // Obsidian background
+    doc.rect(0, 0, 210, 40, 'F');
+
+    doc.setFontSize(22);
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.text("Reporte de Actividad", 105, 20, { align: "center" });
+
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Del ${startDate} al ${endDate}`, 105, 30, { align: "center" });
+
+    // --- TABLE ---
+    const tableBody = filteredItems.map(item => {
+        let timeStr = item.timestamp;
+        if (item.isoDate) {
+            try {
+                timeStr = new Date(item.isoDate).toLocaleString('es-MX', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            } catch (e) {
+                console.error("Error parsing isoDate:", e);
+            }
+        }
+        return [
+            timeStr,
+            item.clientName || 'Sin Cliente',
+            item.user?.name || 'Sistema',
+            item.description
+        ];
+    });
+
+    autoTable(doc, {
+        startY: 50,
+        head: [['Fecha/Hora', 'Cliente', 'Agente', 'Actividad']],
+        body: tableBody,
+        theme: 'grid',
+        headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: 'bold' }, // Slate 900
+        bodyStyles: { textColor: [0, 0, 0] },
+        styles: { fontSize: 10, cellPadding: 3 },
+        columnStyles: {
+            0: { cellWidth: 35 },
+            1: { cellWidth: 40 },
+            2: { cellWidth: 30 },
+            3: { cellWidth: 'auto' }
+        }
+    });
+
+    doc.save(`Reporte_Actividad_${startDate}_${endDate}.pdf`);
+};

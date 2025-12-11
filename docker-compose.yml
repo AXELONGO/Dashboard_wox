@@ -22,5 +22,6 @@ services:
       - NOTION_HISTORY_DB_ID=${VITE_NOTION_HISTORY_DB_ID}
       - NOTION_CLIENTS_DB_ID=${VITE_NOTION_CLIENTS_DB_ID}
       - NOTION_CLIENTS_HISTORY_DB_ID=${VITE_NOTION_CLIENTS_HISTORY_DB_ID}
+      - NOTION_SUPPORT_DB_ID=${VITE_NOTION_SUPPORT_DB_ID}
       # Google Auth removed as per requirement
     restart: always

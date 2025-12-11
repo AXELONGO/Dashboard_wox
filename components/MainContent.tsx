@@ -33,6 +33,17 @@ const MainContent: React.FC<MainContentProps> = ({ leads, history, toggleSelectL
       (lead.clase && lead.clase.toLowerCase().includes(search)) ||
       (lead.phone && lead.phone.toLowerCase().includes(search))
     );
+  }).sort((a, b) => {
+    // Custom sort order: A -> B -> C -> Everything else
+    const order: { [key: string]: number } = { 'A': 1, 'B': 2, 'C': 3 };
+    const valA = order[a.clase || ''] || 99; // Default to 99 if undefined/unknown
+    const valB = order[b.clase || ''] || 99;
+
+    // Primary sort by Class
+    if (valA !== valB) return valA - valB;
+
+    // Secondary sort by Name (optional, for consistency)
+    return a.name.localeCompare(b.name);
   });
 
   return (
@@ -58,13 +69,6 @@ const MainContent: React.FC<MainContentProps> = ({ leads, history, toggleSelectL
               <span className="material-symbols-outlined text-[18px] text-red-600">picture_as_pdf</span>
               <span>Reporte Diario</span>
             </button>
-            <div className="h-8 w-px bg-white/10 mx-1 hidden sm:block"></div>
-            <button className="flex items-center justify-center p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors active:scale-95">
-              <span className="material-symbols-outlined text-[20px]">filter_list</span>
-            </button>
-            <button className="flex items-center justify-center p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors active:scale-95">
-              <span className="material-symbols-outlined text-[20px]">sort</span>
-            </button>
           </div>
         </div>
       </div>
@@ -73,20 +77,21 @@ const MainContent: React.FC<MainContentProps> = ({ leads, history, toggleSelectL
       <div className="flex-1 overflow-y-auto px-4 md:px-6 pb-20 scroll-smooth">
         <div className="flex flex-col gap-3">
           {/* Header of List */}
-          <div className="flex items-center px-6 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-widest hidden sm:flex">
-            <div className="w-8"></div>
-            <div className="flex-1">Empresa</div>
-            <div className="w-24 text-center">Clase</div>
-            <div className="w-48 hidden lg:block">Contacto</div>
-            <div className="w-10"></div>
+          <div className="grid grid-cols-[auto_1fr_auto_auto_auto] sm:grid-cols-[auto_1fr_96px_192px_40px] items-center px-6 py-2 text-[10px] font-bold text-white uppercase tracking-widest hidden sm:grid">
+            <div className="w-8 hidden sm:block"></div> {/* Checkbox placeholder */}
+            <div className="text-[10px] sm:text-xs font-bold text-white uppercase tracking-wider">Cliente / Empresa</div>
+            <div className="text-[10px] sm:text-xs font-bold text-white uppercase tracking-wider text-center w-24 hidden sm:block">Clase</div>
+            <div className="text-[10px] sm:text-xs font-bold text-white uppercase tracking-wider text-right hidden md:block">Contacto</div>
+            <div className="w-10"></div> {/* More options placeholder */}
           </div>
 
           {/* List Items */}
           {filteredLeads.map((lead) => (
             <div
               key={lead.id}
+              onClick={() => toggleSelectLead(lead.id)}
               className={`
-                group flex items-start gap-3 md:gap-5 p-4 rounded-xl border transition-all duration-300
+                group flex items-start gap-3 md:gap-5 p-4 rounded-xl border transition-all duration-300 cursor-pointer
                 ${lead.isSelected
                   ? 'bg-white/10 border-white/30 shadow-[0_0_20px_rgba(255,255,255,0.05)]'
                   : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.05] hover:border-white/10 hover:shadow-lg'
@@ -97,16 +102,17 @@ const MainContent: React.FC<MainContentProps> = ({ leads, history, toggleSelectL
                 <input
                   type="checkbox"
                   checked={lead.isSelected}
-                  onChange={() => toggleSelectLead(lead.id)}
+                  onChange={() => { }} // Controlled by parent click, or keep empty to avoid warning
+                  onClick={(e) => { e.stopPropagation(); toggleSelectLead(lead.id); }}
                   className="rounded border-white/20 bg-black/50 text-white focus:ring-0 focus:ring-offset-0 cursor-pointer hover:border-white/40 transition-colors"
                 />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-3 mb-1.5">
-                  <h4 className={`font-semibold text-sm md:text-base truncate max-w-full transition-all ${lead.isSelected ? 'text-white text-glow scale-[1.01]' : 'text-gray-200'}`}>
+                  <h4 className={`font-semibold text-sm md:text-base truncate max-w-full transition-all ${lead.isSelected ? 'text-white text-glow scale-[1.01]' : 'text-white'}`}>
                     {lead.name}
                   </h4>
-                  <a className="text-gray-500 hover:text-white transition-colors flex items-center p-1 rounded hover:bg-white/10" href={lead.website || '#'} target="_blank" rel="noreferrer">
+                  <a className="text-white hover:text-gray-300 transition-colors flex items-center p-1 rounded hover:bg-white/10" href={lead.website || '#'} target="_blank" rel="noreferrer">
                     <span className="material-symbols-outlined text-[14px]">open_in_new</span>
                   </a>
                   {lead.isSynced && (
@@ -116,8 +122,8 @@ const MainContent: React.FC<MainContentProps> = ({ leads, history, toggleSelectL
                     </span>
                   )}
                 </div>
-                <div className="flex items-start gap-2 text-gray-500 text-xs md:text-sm">
-                  <span className="material-symbols-outlined text-[16px] mt-0.5 flex-none opacity-70">location_on</span>
+                <div className="flex items-start gap-2 text-white text-xs md:text-sm">
+                  <span className="material-symbols-outlined text-[16px] mt-0.5 flex-none opacity-100">location_on</span>
                   <span className="line-clamp-2">{lead.address}</span>
                 </div>
                 {/* Phone number visible on mobile/tablet */}
@@ -129,27 +135,37 @@ const MainContent: React.FC<MainContentProps> = ({ leads, history, toggleSelectL
 
               {/* CLASE DROPDOWN */}
               <div className="w-24 flex items-center justify-center">
-                <div className="relative group/clase" onClick={(e) => e.stopPropagation()}>
+                <div className="hidden sm:flex items-center justify-center w-24">
                   <select
                     value={lead.clase}
-                    onChange={(e) => onClassChange(lead.id, e.target.value)}
-                    className={`bg-black/40 border border-white/10 rounded-md text-xs py-1 pl-2 pr-6 appearance-none cursor-pointer focus:ring-1 focus:ring-white/20 outline-none backdrop-blur-sm transition-all hover:border-white/20 ${getClassStyles(lead.clase)}`}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      onClassChange(lead.id, e.target.value);
+                    }}
+                    className={`
+                                            appearance-none text-[10px] font-bold px-2 py-1 rounded border bg-black/50 outline-none cursor-pointer transition-all hover:bg-black/80
+                                            ${lead.clase === 'A' ? 'text-emerald-400 border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.1)]' : ''}
+                                            ${lead.clase === 'B' ? 'text-blue-400 border-blue-500/30' : ''}
+                                            ${lead.clase === 'C' ? 'text-gray-400 border-gray-500/30' : ''}
+                                        `}
                   >
-                    <option value="A" className="bg-slate-900 text-emerald-400">Clase A</option>
-                    <option value="B" className="bg-slate-900 text-blue-400">Clase B</option>
-                    <option value="C" className="bg-slate-900 text-gray-400">Clase C</option>
+                    <option value="A">Clase A</option>
+                    <option value="B">Clase B</option>
+                    <option value="C">Clase C</option>
                   </select>
+                </div>
+                <div className="hidden md:flex flex-col items-end gap-1 text-right">
                   <span className="material-symbols-outlined text-[14px] absolute right-1.5 top-1.5 text-gray-500 pointer-events-none group-hover/clase:text-white transition-colors">expand_more</span>
                 </div>
               </div>
 
               {/* Desktop Columns */}
-              <div className="w-48 hidden lg:flex flex-col justify-center gap-1">
-                <div className="flex items-center gap-2 text-gray-400 text-sm">
-                  <span className="material-symbols-outlined text-[16px] text-white/50">call</span>
-                  <span className="font-mono text-xs hover:text-white transition-colors cursor-text selection:bg-white/20">{lead.phone}</span>
+              < div className="w-48 hidden lg:flex flex-col justify-center gap-1" >
+                <div className="flex items-center gap-2 text-white text-sm">
+                  <span className="material-symbols-outlined text-[16px] text-white">call</span>
+                  <span className="font-mono text-xs hover:text-gray-300 transition-colors cursor-text selection:bg-white/20">{lead.phone}</span>
                 </div>
-                <div className="text-xs text-gray-600 truncate hover:text-white cursor-pointer transition-colors pl-6 hover:underline">{lead.website || 'No website'}</div>
+                <div className="text-xs text-white truncate hover:text-gray-300 cursor-pointer transition-colors pl-6 hover:underline">{lead.website || 'No website'}</div>
               </div>
 
               <div className="w-10 flex items-center justify-end opacity-0 group-hover:opacity-100 transition-opacity">
@@ -167,8 +183,8 @@ const MainContent: React.FC<MainContentProps> = ({ leads, history, toggleSelectL
             </div>
           )}
         </div>
-      </div>
-    </main>
+      </div >
+    </main >
   );
 };
 

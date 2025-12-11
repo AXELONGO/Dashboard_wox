@@ -70,6 +70,14 @@ async def create_client(client: Dict[str, Any] = Body(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@router.get("/support-tickets")
+async def get_support_tickets():
+    try:
+        return await notion_service.get_support_tickets()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/clients/history")
 async def get_clients_history(startDate: Optional[str] = None, endDate: Optional[str] = None):
     try:
